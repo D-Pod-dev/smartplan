@@ -1,16 +1,31 @@
-# React + Vite
+# SmartPlan — AI-powered To‑Do
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+SmartPlan is a lightweight, AI-assisted to‑do app. It focuses on a simple daily flow and an assistant chat that helps prioritize, schedule, and summarize tasks (no automation flows required).
 
-Currently, two official plugins are available:
+## Screens
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+- Today: Status cards and a focus list
+- SmartPlan Chat: Conversation UI with a composer
+- Insights: Lightweight metrics (flow, focus, time saved)
+- Settings: Preferences and integrations placeholders
 
-## React Compiler
+## Development
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+```bash
+npm run dev
+```
 
-## Expanding the ESLint configuration
+Open the app and navigate via the sidebar. Routing is powered by `react-router-dom`.
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+## Build
+
+```bash
+npm run build
+npm run preview
+```
+
+## Tech
+
+- React + Vite
+- Client-side routing (`react-router-dom`)
+- Custom CSS (no Tailwind used in UI yet)
