@@ -1,11 +1,48 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import '../App.css'
+import DayStrip from '../components/DayStrip'
 
 const seedTasks = [
-  { id: 1, title: 'Outline launch checklist', due: { date: '2025-12-29', time: '11:00' }, tags: ['Launch'], priority: 'High', completed: false, timeAllocated: 90 },
-  { id: 2, title: 'Reply to customer threads', due: { date: '2025-12-29', time: '13:00' }, tags: ['CX'], priority: 'Medium', completed: false, timeAllocated: 45 },
-  { id: 3, title: 'Draft sprint goals', due: { date: '2025-12-29', time: '16:00' }, tags: ['Product'], priority: 'High', completed: false, timeAllocated: 75 },
-  { id: 4, title: 'Share hiring scorecards', due: { date: '2025-12-29', time: '17:30' }, tags: ['People'], priority: 'Low', completed: false, timeAllocated: 50 },
+  {
+    id: 1,
+    title: 'Outline launch checklist',
+    due: { date: '2025-12-29', time: '11:00' },
+    tags: ['Launch'],
+    priority: 'High',
+    completed: false,
+    timeAllocated: 90,
+    recurrence: { type: 'None', interval: null, unit: 'day', daysOfWeek: [] },
+  },
+  {
+    id: 2,
+    title: 'Reply to customer threads',
+    due: { date: '2025-12-29', time: '13:00' },
+    tags: ['CX'],
+    priority: 'Medium',
+    completed: false,
+    timeAllocated: 45,
+    recurrence: { type: 'None', interval: null, unit: 'day', daysOfWeek: [] },
+  },
+  {
+    id: 3,
+    title: 'Draft sprint goals',
+    due: { date: '2025-12-29', time: '16:00' },
+    tags: ['Product'],
+    priority: 'High',
+    completed: false,
+    timeAllocated: 75,
+    recurrence: { type: 'None', interval: null, unit: 'day', daysOfWeek: [] },
+  },
+  {
+    id: 4,
+    title: 'Share hiring scorecards',
+    due: { date: '2025-12-29', time: '17:30' },
+    tags: ['People'],
+    priority: 'Low',
+    completed: false,
+    timeAllocated: 50,
+    recurrence: { type: 'None', interval: null, unit: 'day', daysOfWeek: [] },
+  },
 ]
 
 const emptyDraft = () => ({
@@ -15,9 +52,40 @@ const emptyDraft = () => ({
   priority: 'None',
   tags: [],
   timeAllocated: '',
+  recurrenceType: 'None',
+  recurrenceInterval: '',
+  recurrenceUnit: 'day',
+  recurrenceDaysOfWeek: [],
 })
 
 const isIsoDate = (value) => /^\d{4}-\d{2}-\d{2}$/.test(value || '')
+
+const normalizeRecurrence = (recurrence) => {
+  const defaultRecurrence = { type: 'None', interval: null, unit: 'day', daysOfWeek: [] }
+  if (!recurrence) return defaultRecurrence
+  if (typeof recurrence === 'string') return { ...defaultRecurrence, type: recurrence }
+
+  const type = recurrence.type || 'None'
+  const unit = recurrence.unit || 'day'
+  const intervalRaw = recurrence.interval
+  const parsedInterval = intervalRaw === null || intervalRaw === undefined || intervalRaw === '' ? null : Number(intervalRaw)
+  const interval = Number.isFinite(parsedInterval) ? parsedInterval : null
+  const weekdayOrder = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+  const rawDays = Array.isArray(recurrence.daysOfWeek) ? recurrence.daysOfWeek.filter(Boolean) : []
+  const uniqueDays = Array.from(new Set(rawDays))
+  const sortedDays = uniqueDays
+    .filter((d) => weekdayOrder.includes(d))
+    .sort((a, b) => weekdayOrder.indexOf(a) - weekdayOrder.indexOf(b))
+
+  const keepDays = type === 'Weekly' || (type === 'Custom' && unit === 'week')
+
+  return {
+    type,
+    interval: type === 'Custom' ? interval : null,
+    unit,
+    daysOfWeek: keepDays ? sortedDays : [],
+  }
+}
 
 const normalizeTask = (task) => {
   const parsedDue = (() => {
@@ -42,6 +110,7 @@ const normalizeTask = (task) => {
 
   const rawTime = task?.timeAllocated
   const timeAllocated = rawTime === null || rawTime === undefined || rawTime === '' ? null : Number(rawTime)
+  const recurrence = normalizeRecurrence(task?.recurrence)
 
   return {
     id: task?.id ?? Date.now(),
@@ -51,6 +120,7 @@ const normalizeTask = (task) => {
     priority: task?.priority ?? 'None',
     completed: Boolean(task?.completed),
     timeAllocated: Number.isFinite(timeAllocated) ? timeAllocated : null,
+    recurrence,
   }
 }
 
@@ -103,6 +173,37 @@ const formatDue = (due) => {
   return [dateLabel, timeLabel].filter(Boolean).join(' · ')
 }
 
+const formatRecurrence = (recurrence) => {
+  const normalized = normalizeRecurrence(recurrence)
+  if (normalized.type === 'None') return 'Not recurring'
+
+  if (normalized.type === 'Weekly') {
+    if (!normalized.daysOfWeek || normalized.daysOfWeek.length === 0) return 'Weekly'
+    const order = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+    const dayMap = { Mon: 'Mo', Tue: 'Tu', Wed: 'We', Thu: 'Th', Fri: 'Fr', Sat: 'Sa', Sun: 'Su' }
+    const uniqueDays = Array.from(new Set(normalized.daysOfWeek))
+    const sortedDays = uniqueDays.sort((a, b) => order.indexOf(a) - order.indexOf(b))
+    const dayAbbrevs = sortedDays.map((d) => dayMap[d] || d).join(', ')
+    return `Weekly (${dayAbbrevs})`
+  }
+
+  if (normalized.type === 'Custom') {
+    if (!normalized.interval) return 'Custom cadence'
+    const unitLabel = normalized.interval === 1 ? normalized.unit : `${normalized.unit}s`
+    const base = `Every ${normalized.interval} ${unitLabel}`
+
+    if (normalized.unit === 'week' && normalized.daysOfWeek.length) {
+      const dayMap = { Mon: 'Mo', Tue: 'Tu', Wed: 'We', Thu: 'Th', Fri: 'Fr', Sat: 'Sa', Sun: 'Su' }
+      const dayAbbrevs = normalized.daysOfWeek.map((d) => dayMap[d] || d).join(', ')
+      return `${base} (${dayAbbrevs})`
+    }
+
+    return base
+  }
+
+  return normalized.type
+}
+
 export default function Today() {
   const initialData = useMemo(() => {
     const initialTasks = deriveInitialTasks()
@@ -118,9 +219,20 @@ export default function Today() {
   const [editingTagInput, setEditingTagInput] = useState('')
   const [composerTagInputOpen, setComposerTagInputOpen] = useState(false)
   const [editingTagInputOpen, setEditingTagInputOpen] = useState(false)
+  const [tagManagerOpen, setTagManagerOpen] = useState(false)
+  const [tagManagerEditId, setTagManagerEditId] = useState(null)
+  const [tagManagerEditValue, setTagManagerEditValue] = useState('')
+  const [tagManagerOpener, setTagManagerOpener] = useState(null)
+  const [tagSearchQuery, setTagSearchQuery] = useState('')
+  const [newTagInput, setNewTagInput] = useState('')
+  const [originalTags, setOriginalTags] = useState([])
   const composerRef = useRef(null)
   const composerTagInputRef = useRef(null)
   const editingTagInputRef = useRef(null)
+  const tagManagerEditRef = useRef(null)
+  const tagManagerCloseRef = useRef(null)
+  const composerSettingsRef = useRef(null)
+  const editingSettingsRef = useRef(null)
 
   useEffect(() => {
     localStorage.setItem('smartplan.tasks', JSON.stringify(tasks))
@@ -149,6 +261,20 @@ export default function Today() {
       editingTagInputRef.current?.focus()
     }
   }, [editingTagInputOpen])
+
+  useEffect(() => {
+    if (tagManagerOpen) {
+      tagManagerCloseRef.current?.focus()
+    } else if (tagManagerOpener) {
+      // Return focus to the settings button that opened the modal
+      if (tagManagerOpener === 'composer') {
+        composerSettingsRef.current?.focus()
+      } else if (tagManagerOpener === 'editing') {
+        editingSettingsRef.current?.focus()
+      }
+      setTagManagerOpener(null)
+    }
+  }, [tagManagerOpen, tagManagerOpener])
 
   const focusAdd = () => composerRef.current?.focus()
 
@@ -202,7 +328,76 @@ export default function Today() {
 
   const updateDraft = (target, field, value) => {
     const setter = target === 'edit' ? setEditingDraft : setComposerDraft
+    if (field === 'recurrenceType') {
+      setter((prev) => {
+        const next = { ...prev, [field]: value }
+        if (value === 'Weekly') {
+          const weekdayMap = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+          const today = weekdayMap[new Date().getDay()]
+          if (!Array.isArray(prev.recurrenceDaysOfWeek) || prev.recurrenceDaysOfWeek.length === 0) {
+            next.recurrenceDaysOfWeek = [today]
+          }
+        }
+        return next
+      })
+      return
+    }
+
     setter((prev) => ({ ...prev, [field]: value }))
+  }
+
+  const buildRecurrenceFromDraft = (draft) => normalizeRecurrence({
+    type: draft.recurrenceType || 'None',
+    interval: draft.recurrenceType === 'Custom' ? draft.recurrenceInterval : null,
+    unit: draft.recurrenceUnit || 'day',
+    daysOfWeek: draft.recurrenceType === 'Weekly' || (draft.recurrenceType === 'Custom' && draft.recurrenceUnit === 'week')
+      ? draft.recurrenceDaysOfWeek
+      : [],
+  })
+
+  const shouldShowDayStrip = (draft) => draft.recurrenceType === 'Weekly' || (draft.recurrenceType === 'Custom' && draft.recurrenceUnit === 'week')
+
+  const toggleDayOfWeek = (day, target) => {
+    const setter = target === 'edit' ? setEditingDraft : setComposerDraft
+    setter((prev) => {
+      const exists = prev.recurrenceDaysOfWeek.includes(day)
+      const nextDays = exists
+        ? prev.recurrenceDaysOfWeek.filter((d) => d !== day)
+        : [...prev.recurrenceDaysOfWeek, day]
+      return { ...prev, recurrenceDaysOfWeek: nextDays }
+    })
+  }
+
+  const setWeekdays = (target) => {
+    const setter = target === 'edit' ? setEditingDraft : setComposerDraft
+    setter((prev) => {
+      const allWeekdaysSelected = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'].every(day => prev.recurrenceDaysOfWeek.includes(day))
+      const weekends = prev.recurrenceDaysOfWeek.filter(d => ['Sat', 'Sun'].includes(d))
+      return {
+        ...prev,
+        recurrenceDaysOfWeek: allWeekdaysSelected ? weekends : [...weekends, 'Mon', 'Tue', 'Wed', 'Thu', 'Fri'],
+      }
+    })
+  }
+
+  const setWeekends = (target) => {
+    const setter = target === 'edit' ? setEditingDraft : setComposerDraft
+    setter((prev) => {
+      const allWeekendsSelected = ['Sat', 'Sun'].every(day => prev.recurrenceDaysOfWeek.includes(day))
+      const weekdays = prev.recurrenceDaysOfWeek.filter(d => ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'].includes(d))
+      return {
+        ...prev,
+        recurrenceDaysOfWeek: allWeekendsSelected ? weekdays : [...weekdays, 'Sat', 'Sun'],
+      }
+    })
+  }
+
+  const clearDaysOfWeek = (target) => {
+    const setter = target === 'edit' ? setEditingDraft : setComposerDraft
+    setter((prev) => ({
+      ...prev,
+      recurrenceDaysOfWeek: [],
+    }))
   }
 
   const resetComposer = () => {
@@ -227,6 +422,7 @@ export default function Today() {
       tags: normalizedTags,
       completed: false,
       timeAllocated,
+      recurrence: buildRecurrenceFromDraft(composerDraft),
     }
 
     setTasks((prev) => [newTask, ...prev])
@@ -248,6 +444,10 @@ export default function Today() {
       priority: task.priority || 'None',
       tags: task.tags || [],
       timeAllocated: task.timeAllocated ?? '',
+      recurrenceType: task.recurrence?.type || 'None',
+      recurrenceInterval: task.recurrence?.interval ?? '',
+      recurrenceUnit: task.recurrence?.unit || 'day',
+      recurrenceDaysOfWeek: task.recurrence?.daysOfWeek || [],
     })
     setEditingTagInput('')
     setEditingTagInputOpen(false)
@@ -275,6 +475,7 @@ export default function Today() {
           priority: editingDraft.priority || 'None',
           tags: normalizedTags,
           timeAllocated,
+          recurrence: buildRecurrenceFromDraft(editingDraft),
         }
       : t)))
 
@@ -294,6 +495,53 @@ export default function Today() {
     if (editingId === id) {
       cancelEdit()
     }
+  }
+
+  const deleteTag = (tag) => {
+    const confirmed = window.confirm(`Delete tag "${tag}"? Tasks with this tag will keep it.`)
+    if (!confirmed) return
+    setTags((prev) => prev.filter((t) => t !== tag))
+    
+    // Remove tag from current draft if the tag manager is open
+    if (tagManagerOpener === 'composer') {
+      setComposerDraft((prev) => ({
+        ...prev,
+        tags: prev.tags.filter((t) => t !== tag)
+      }))
+    } else if (tagManagerOpener === 'editing') {
+      setEditingDraft((prev) => ({
+        ...prev,
+        tags: prev.tags.filter((t) => t !== tag)
+      }))
+    }
+  }
+
+  const startEditTag = (tag) => {
+    setTagManagerEditId(tag)
+    setTagManagerEditValue(tag)
+  }
+
+  const cancelEditTag = () => {
+    setTagManagerEditId(null)
+    setTagManagerEditValue('')
+  }
+
+  const saveEditTag = () => {
+    const newName = tagManagerEditValue.trim()
+    if (!newName || newName === tagManagerEditId) {
+      cancelEditTag()
+      return
+    }
+    if (tags.includes(newName)) {
+      alert('A tag with this name already exists')
+      return
+    }
+    setTags((prev) => prev.map((t) => (t === tagManagerEditId ? newName : t)))
+    setTasks((prev) => prev.map((task) => ({
+      ...task,
+      tags: task.tags.map((t) => (t === tagManagerEditId ? newName : t)),
+    })))
+    cancelEditTag()
   }
 
   const renderTags = (taskTags) => {
@@ -332,20 +580,21 @@ export default function Today() {
               +
             </button>
             <div className="todo-main">
-              <input
-                ref={composerRef}
-                className="todo-edit-input"
-                type="text"
-                placeholder="Task name"
-                value={composerDraft.title}
-                onChange={(e) => updateDraft('compose', 'title', e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') addTask()
-                }}
-              />
-
-              <div className="todo-field-row">
-                <label className="todo-field">
+              <label className="todo-field" style={{ flex: '0 1 420px', maxWidth: '420px' }}>
+                <span>Task name</span>
+                <input
+                  ref={composerRef}
+                  className="todo-edit-input"
+                  type="text"
+                  placeholder="Task name"
+                  value={composerDraft.title}
+                  onChange={(e) => updateDraft('compose', 'title', e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') addTask()
+                  }}
+                />
+              </label>
+                <label className="todo-field" style={{ flex: '0 1 auto', maxWidth: '150px' }}>
                   <span>Due date</span>
                   <input
                     className="todo-edit-input"
@@ -354,7 +603,7 @@ export default function Today() {
                     onChange={(e) => updateDraft('compose', 'dueDate', e.target.value)}
                   />
                 </label>
-                <label className="todo-field">
+                <label className="todo-field" style={{ flex: '0 1 auto', maxWidth: '120px' }}>
                   <span>Due time</span>
                   <input
                     className="todo-edit-input"
@@ -363,7 +612,7 @@ export default function Today() {
                     onChange={(e) => updateDraft('compose', 'dueTime', e.target.value)}
                   />
                 </label>
-                <label className="todo-field">
+                <label className="todo-field" style={{ flex: '0 1 auto', maxWidth: '120px' }}>
                   <span>Priority</span>
                   <select
                     className="todo-edit-input"
@@ -376,7 +625,7 @@ export default function Today() {
                     <option value="Low">Low</option>
                   </select>
                 </label>
-                <label className="todo-field">
+                <label className="todo-field" style={{ flex: '0 1 auto', maxWidth: '140px' }}>
                   <span>Time allotted (min)</span>
                   <input
                     className="todo-edit-input"
@@ -387,56 +636,110 @@ export default function Today() {
                     onChange={(e) => updateDraft('compose', 'timeAllocated', e.target.value)}
                   />
                 </label>
-              </div>
-
-              <div className="todo-field">
-                <span>Tags</span>
-                <div className="tag-picker">
-                  <div className="tag-options">
-                    {tags.map((tag) => {
-                      const isSelected = composerDraft.tags.includes(tag)
-                      return (
-                        <button
-                          key={tag}
-                          type="button"
-                          className={`pill pill--tag ${isSelected ? 'is-selected' : ''}`}
-                          onClick={() => toggleTagSelection(tag, 'compose')}
-                        >
-                          {tag}
-                        </button>
-                      )
-                    })}
-                    {composerTagInputOpen && (
-                      <div className="tag-create tag-create--inline">
-                        <input
-                          ref={composerTagInputRef}
-                          className="todo-edit-input"
-                          type="text"
-                          placeholder="New tag"
-                          value={composerTagInput}
-                          onChange={(e) => setComposerTagInput(e.target.value)}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter') {
-                              e.preventDefault()
-                              attachNewTag(composerTagInput, 'compose')
-                            }
+                <div className="todo-field" style={{ flex: '0 1 auto' }}>
+                  <span>Tags</span>
+                  <div className="tag-picker">
+                    <div className="tag-options">
+                      {composerDraft.tags.length === 0 ? (
+                        <span 
+                          className="pill pill--subtle" 
+                          style={{ cursor: 'pointer' }}
+                          onClick={() => {
+                            setOriginalTags([...composerDraft.tags])
+                            setTagManagerOpener('composer')
+                            setTagManagerOpen(true)
                           }}
-                        />
-                        <button className="action ghost" type="button" onClick={() => attachNewTag(composerTagInput, 'compose')}>
-                          Add tag
-                        </button>
-                      </div>
-                    )}
-                    <button
-                      type="button"
-                      className={`pill pill--tag pill--add-tag ${composerTagInputOpen ? 'is-active' : ''}`}
-                      title="Create new tag"
-                      onClick={toggleComposerTagInput}
-                    >
-                      +
-                    </button>
+                        >
+                          No tags
+                        </span>
+                      ) : (
+                        composerDraft.tags.map((tag) => (
+                          <span 
+                            key={tag} 
+                            className="pill pill--tag"
+                            style={{ cursor: 'pointer' }}
+                            onClick={() => {
+                              setOriginalTags([...composerDraft.tags])
+                              setTagManagerOpener('composer')
+                              setTagManagerOpen(true)
+                            }}
+                          >
+                            {tag}
+                          </span>
+                        ))
+                      )}
+                      <button
+                        type="button"
+                        className="pill pill--tag pill--add-tag"
+                        title="Manage tags"
+                        onClick={() => {
+                          setOriginalTags([...composerDraft.tags])
+                          setTagManagerOpener('composer')
+                          setTagManagerOpen(true)
+                        }}
+                        ref={composerSettingsRef}
+                      >
+                        +
+                      </button>
+                    </div>
                   </div>
                 </div>
+
+              <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', flex: '0 1 auto' }}>
+                <label className="todo-field">
+                  <span>Recurrence</span>
+                  <select
+                    className="todo-edit-input"
+                    value={composerDraft.recurrenceType}
+                    onChange={(e) => updateDraft('compose', 'recurrenceType', e.target.value)}
+                  >
+                    <option value="None">None</option>
+                    <option value="Daily">Daily</option>
+                    <option value="Weekly">Weekly</option>
+                    <option value="Monthly">Monthly</option>
+                    <option value="Custom">Custom</option>
+                  </select>
+                </label>
+
+                {composerDraft.recurrenceType === 'Custom' && (
+                  <>
+                    <label className="todo-field" style={{ flex: '0 1 auto', maxWidth: '100px' }}>
+                      <span>Every</span>
+                      <input
+                        className="todo-edit-input"
+                        type="number"
+                        min="1"
+                        value={composerDraft.recurrenceInterval}
+                        onChange={(e) => updateDraft('compose', 'recurrenceInterval', e.target.value)}
+                      />
+                    </label>
+                    <label className="todo-field">
+                      <span>Unit</span>
+                      <select
+                        className="todo-edit-input"
+                        value={composerDraft.recurrenceUnit}
+                        onChange={(e) => updateDraft('compose', 'recurrenceUnit', e.target.value)}
+                      >
+                        <option value="day">days</option>
+                        <option value="week">weeks</option>
+                        <option value="month">months</option>
+                      </select>
+                    </label>
+                  </>
+                )}
+
+                {shouldShowDayStrip(composerDraft) && (
+                  <div className="todo-field">
+                    <span>Days</span>
+                    <DayStrip
+                      selectedDays={composerDraft.recurrenceDaysOfWeek}
+                      onToggleDay={(day) => toggleDayOfWeek(day, 'compose')}
+                      onSelectWeekdays={() => setWeekdays('compose')}
+                      onSelectWeekends={() => setWeekends('compose')}
+                      onClear={() => clearDaysOfWeek('compose')}
+                    />
+                  </div>
+                )}
               </div>
             </div>
 
@@ -464,20 +767,21 @@ export default function Today() {
                     <div className="todo-main">
                       {isEditing ? (
                         <>
-                          <input
-                            className="todo-edit-input"
-                            type="text"
-                            value={editingDraft.title}
-                            onChange={(e) => updateDraft('edit', 'title', e.target.value)}
-                            onKeyDown={(e) => {
-                              if (e.key === 'Enter') saveEdit(task.id)
-                              if (e.key === 'Escape') cancelEdit()
-                            }}
-                            autoFocus
-                          />
-
-                          <div className="todo-field-row">
-                            <label className="todo-field">
+                          <label className="todo-field" style={{ flex: '0 1 420px', maxWidth: '420px' }}>
+                            <span>Task name</span>
+                            <input
+                              className="todo-edit-input"
+                              type="text"
+                              value={editingDraft.title}
+                              onChange={(e) => updateDraft('edit', 'title', e.target.value)}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') saveEdit(task.id)
+                                if (e.key === 'Escape') cancelEdit()
+                              }}
+                              autoFocus
+                            />
+                          </label>
+                            <label className="todo-field" style={{ flex: '0 1 auto', maxWidth: '150px' }}>
                               <span>Due date</span>
                               <input
                                 className="todo-edit-input"
@@ -486,7 +790,7 @@ export default function Today() {
                                 onChange={(e) => updateDraft('edit', 'dueDate', e.target.value)}
                               />
                             </label>
-                            <label className="todo-field">
+                            <label className="todo-field" style={{ flex: '0 1 auto', maxWidth: '120px' }}>
                               <span>Due time</span>
                               <input
                                 className="todo-edit-input"
@@ -495,7 +799,7 @@ export default function Today() {
                                 onChange={(e) => updateDraft('edit', 'dueTime', e.target.value)}
                               />
                             </label>
-                            <label className="todo-field">
+                            <label className="todo-field" style={{ flex: '0 1 auto', maxWidth: '120px' }}>
                               <span>Priority</span>
                               <select
                                 className="todo-edit-input"
@@ -508,7 +812,7 @@ export default function Today() {
                                 <option value="Low">Low</option>
                               </select>
                             </label>
-                            <label className="todo-field">
+                            <label className="todo-field" style={{ flex: '0 1 auto', maxWidth: '140px' }}>
                               <span>Time allotted (min)</span>
                               <input
                                 className="todo-edit-input"
@@ -519,68 +823,123 @@ export default function Today() {
                                 onChange={(e) => updateDraft('edit', 'timeAllocated', e.target.value)}
                               />
                             </label>
-                          </div>
-
-                          <div className="todo-field">
-                            <span>Tags</span>
-                            <div className="tag-picker">
-                              <div className="tag-options">
-                                {tags.map((tag) => {
-                                  const isSelected = editingDraft.tags.includes(tag)
-                                  return (
-                                    <button
-                                      key={tag}
-                                      type="button"
-                                      className={`pill pill--tag ${isSelected ? 'is-selected' : ''}`}
-                                      onClick={() => toggleTagSelection(tag, 'edit')}
-                                    >
-                                      {tag}
-                                    </button>
-                                  )
-                                })}
-                                {editingTagInputOpen && (
-                                  <div className="tag-create tag-create--inline">
-                                    <input
-                                      ref={editingTagInputRef}
-                                      className="todo-edit-input"
-                                      type="text"
-                                      placeholder="New tag"
-                                      value={editingTagInput}
-                                      onChange={(e) => setEditingTagInput(e.target.value)}
-                                      onKeyDown={(e) => {
-                                        if (e.key === 'Enter') {
-                                          e.preventDefault()
-                                          attachNewTag(editingTagInput, 'edit')
-                                        }
+                            <div className="todo-field" style={{ flex: '0 1 auto' }}>
+                              <span>Tags</span>
+                              <div className="tag-picker">
+                                <div className="tag-options day-strip">
+                                  {editingDraft.tags.length === 0 ? (
+                                    <span 
+                                      className="pill pill--subtle" 
+                                      style={{ cursor: 'pointer' }}
+                                      onClick={() => {
+                                        setOriginalTags([...editingDraft.tags])
+                                        setTagManagerOpener('editing')
+                                        setTagManagerOpen(true)
                                       }}
-                                    />
-                                    <button className="action ghost" type="button" onClick={() => attachNewTag(editingTagInput, 'edit')}>
-                                      Add tag
-                                    </button>
-                                  </div>
-                                )}
-                                <button
-                                  type="button"
-                                  className={`pill pill--tag pill--add-tag ${editingTagInputOpen ? 'is-active' : ''}`}
-                                  title="Create new tag"
-                                  onClick={toggleEditingTagInput}
-                                >
-                                  +
-                                </button>
+                                    >
+                                      No tags
+                                    </span>
+                                  ) : (
+                                    editingDraft.tags.map((tag) => (
+                                      <span 
+                                        key={tag} 
+                                        className="pill pill--tag"
+                                        style={{ cursor: 'pointer' }}
+                                        onClick={() => {
+                                          setOriginalTags([...editingDraft.tags])
+                                          setTagManagerOpener('editing')
+                                          setTagManagerOpen(true)
+                                        }}
+                                      >
+                                        {tag}
+                                      </span>
+                                    ))
+                                  )}
+                                  <button
+                                    type="button"
+                                    className="pill pill--tag pill--add-tag"
+                                    title="Manage tags"
+                                    onClick={() => {
+                                      setOriginalTags([...editingDraft.tags])
+                                      setTagManagerOpener('editing')
+                                      setTagManagerOpen(true)
+                                    }}
+                                    ref={editingSettingsRef}
+                                  >
+                                    +
+                                  </button>
+                                </div>
                               </div>
                             </div>
+
+                          <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', flex: '0 1 auto' }}>
+                            <label className="todo-field">
+                              <span>Recurrence</span>
+                              <select
+                                className="todo-edit-input"
+                                value={editingDraft.recurrenceType}
+                                onChange={(e) => updateDraft('edit', 'recurrenceType', e.target.value)}
+                              >
+                                <option value="None">None</option>
+                                <option value="Daily">Daily</option>
+                                <option value="Weekly">Weekly</option>
+                                <option value="Monthly">Monthly</option>
+                                <option value="Custom">Custom</option>
+                              </select>
+                            </label>
+
+                          {editingDraft.recurrenceType === 'Custom' && (
+                            <>
+                              <label className="todo-field" style={{ flex: '0 1 auto', maxWidth: '100px' }}>
+                                <span>Every</span>
+                                <input
+                                  className="todo-edit-input"
+                                  type="number"
+                                  min="1"
+                                  value={editingDraft.recurrenceInterval}
+                                  onChange={(e) => updateDraft('edit', 'recurrenceInterval', e.target.value)}
+                                />
+                              </label>
+                              <label className="todo-field">
+                                <span>Unit</span>
+                                <select
+                                  className="todo-edit-input"
+                                  value={editingDraft.recurrenceUnit}
+                                  onChange={(e) => updateDraft('edit', 'recurrenceUnit', e.target.value)}
+                                >
+                                  <option value="day">days</option>
+                                  <option value="week">weeks</option>
+                                  <option value="month">months</option>
+                                </select>
+                              </label>
+                            </>
+                          )}
+
+                          {shouldShowDayStrip(editingDraft) && (
+                            <div className="todo-field">
+                              <span>Days</span>
+                              <DayStrip
+                                selectedDays={editingDraft.recurrenceDaysOfWeek}
+                                onToggleDay={(day) => toggleDayOfWeek(day, 'edit')}
+                                onSelectWeekdays={() => setWeekdays('edit')}
+                                onSelectWeekends={() => setWeekends('edit')}
+                                onClear={() => clearDaysOfWeek('edit')}
+                              />
+                            </div>
+                          )}
                           </div>
                         </>
                       ) : (
-                        <>
+                        <div className="todo-display">
                           <div className={`list__title todo-title ${task.completed ? 'is-completed' : ''}`}>{task.title}</div>
                           <div className="list__meta todo-meta">
                             <span className="pill pill--subtle">{formatDue(task.due) || 'No due date'}</span>
                             <span className="pill pill--subtle">{task.timeAllocated ? `${task.timeAllocated} min` : 'No estimate'}</span>
                             <span className="pill pill--subtle">{task.priority === 'None' ? 'No priority' : `${task.priority} priority`}</span>
+                            <span className="pill pill--subtle">{formatRecurrence(task.recurrence)}</span>
                             {renderTags(task.tags)}
                           </div>
-                        </>
+                        </div>
                       )}
                     </div>
 
@@ -606,6 +965,217 @@ export default function Today() {
           <button className="action ghost" type="button">Auto-prioritize with SmartPlan</button>
         </div>
       </section>
+
+      {tagManagerOpen && (
+        <>
+          <div
+            className="sidebar-overlay"
+            onClick={() => setTagManagerOpen(false)}
+            onKeyDown={(e) => {
+              if (e.key === 'Escape') setTagManagerOpen(false)
+            }}
+            role="button"
+            tabIndex={0}
+          />
+          <div className="tag-manager-modal">
+            <div className="tag-manager-header">
+              <h2>Manage Tags</h2>
+              <button
+                ref={tagManagerCloseRef}
+                type="button"
+                className="action link"
+                onClick={() => {
+                  setTagManagerOpen(false)
+                  setTagSearchQuery('')
+                  setNewTagInput('')
+                }}
+              >
+                ✕
+              </button>
+            </div>
+            <div className="tag-manager-content">
+              <div style={{ marginBottom: '1rem' }}>
+                <input
+                  type="text"
+                  className="todo-edit-input"
+                  placeholder="Search tags..."
+                  value={tagSearchQuery}
+                  onChange={(e) => setTagSearchQuery(e.target.value)}
+                  style={{ width: '100%' }}
+                />
+              </div>
+              
+              {(() => {
+                const currentTags = tagManagerOpener === 'composer' ? composerDraft.tags : editingDraft.tags
+                const filteredTags = tags.filter(tag => 
+                  tag.toLowerCase().includes(tagSearchQuery.toLowerCase())
+                )
+                
+                return filteredTags.length === 0 && !tagSearchQuery ? (
+                  <p className="tag-manager-empty">No tags yet. Create one below!</p>
+                ) : filteredTags.length === 0 ? (
+                  <p className="tag-manager-empty">No tags match your search.</p>
+                ) : (
+                  <ul className="tag-manager-list">
+                    {filteredTags.map((tag) => (
+                      <li key={tag} className="tag-manager-item">
+                        {tagManagerEditId === tag ? (
+                          <div className="tag-manager-edit">
+                            <input
+                              ref={tagManagerEditRef}
+                              type="text"
+                              className="todo-edit-input"
+                              value={tagManagerEditValue}
+                              onChange={(e) => setTagManagerEditValue(e.target.value)}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') saveEditTag()
+                                if (e.key === 'Escape') cancelEditTag()
+                              }}
+                              autoFocus
+                            />
+                            <div className="tag-manager-actions">
+                              <button
+                                type="button"
+                                className="action ghost"
+                                onClick={saveEditTag}
+                              >
+                                Save
+                              </button>
+                              <button
+                                type="button"
+                                className="action link"
+                                onClick={cancelEditTag}
+                              >
+                                Cancel
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <>
+                            <button
+                              type="button"
+                              className={`pill pill--tag ${currentTags.includes(tag) ? 'is-selected' : ''}`}
+                              onClick={() => toggleTagSelection(tag, tagManagerOpener === 'composer' ? 'compose' : 'edit')}
+                              style={{ cursor: 'pointer' }}
+                            >
+                              {tag}
+                            </button>
+                            <div className="tag-manager-actions">
+                              <button
+                                type="button"
+                                className="action link"
+                                onClick={() => startEditTag(tag)}
+                                title="Edit tag"
+                              >
+                                Edit
+                              </button>
+                              <button
+                                type="button"
+                                className="action link"
+                                onClick={() => deleteTag(tag)}
+                                title="Delete tag"
+                              >
+                                Delete
+                              </button>
+                            </div>
+                          </>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                )
+              })()}
+              
+              <div style={{ marginTop: '1rem', paddingTop: '1rem', borderTop: '1px solid var(--sidebar-border)' }}>
+                <label style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--muted)', fontSize: '0.88rem' }}>
+                  Create new tag
+                </label>
+                <div style={{ display: 'flex', gap: '0.5rem' }}>
+                  <input
+                    type="text"
+                    className="todo-edit-input"
+                    placeholder="Tag name"
+                    value={newTagInput}
+                    onChange={(e) => setNewTagInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && newTagInput.trim()) {
+                        e.preventDefault()
+                        const normalized = addTagToPool(newTagInput)
+                        if (normalized) {
+                          toggleTagSelection(normalized, tagManagerOpener === 'composer' ? 'compose' : 'edit')
+                          setNewTagInput('')
+                        }
+                      }
+                    }}
+                    style={{ flex: 1 }}
+                  />
+                  <button
+                    type="button"
+                    className="action ghost"
+                    onClick={() => {
+                      if (newTagInput.trim()) {
+                        const normalized = addTagToPool(newTagInput)
+                        if (normalized) {
+                          toggleTagSelection(normalized, tagManagerOpener === 'composer' ? 'compose' : 'edit')
+                          setNewTagInput('')
+                        }
+                      }
+                    }}
+                    disabled={!newTagInput.trim()}
+                  >
+                    Create & Add
+                  </button>
+                </div>
+              </div>
+              
+              <div style={{ marginTop: '1rem', paddingTop: '1rem', borderTop: '1px solid var(--sidebar-border)', display: 'flex', gap: '0.75rem', justifyContent: 'flex-end' }}>
+                <button
+                  type="button"
+                  className="action link"
+                  style={{ marginRight: '0.35rem' }}
+                  onClick={() => {
+                    if (tagManagerOpener === 'composer') {
+                      setComposerDraft((prev) => ({ ...prev, tags: [] }))
+                    } else if (tagManagerOpener === 'editing') {
+                      setEditingDraft((prev) => ({ ...prev, tags: [] }))
+                    }
+                  }}
+                >
+                  Clear tags
+                </button>
+                <button
+                  type="button"
+                  className="action ghost"
+                  onClick={() => {
+                    if (tagManagerOpener === 'composer') {
+                      setComposerDraft((prev) => ({ ...prev, tags: originalTags }))
+                    } else if (tagManagerOpener === 'editing') {
+                      setEditingDraft((prev) => ({ ...prev, tags: originalTags }))
+                    }
+                    setTagManagerOpen(false)
+                    setTagSearchQuery('')
+                    setNewTagInput('')
+                  }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  className="action primary"
+                  onClick={() => {
+                    setTagManagerOpen(false)
+                    setTagSearchQuery('')
+                    setNewTagInput('')
+                  }}
+                >
+                  Done
+                </button>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
     </>
   )
 }
+
