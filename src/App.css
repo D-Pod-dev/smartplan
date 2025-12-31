@@ -22,6 +22,16 @@ body {
   color: var(--sidebar-text);
 }
 
+/* Dark theme for date pickers */
+input[type="date"] {
+  color-scheme: dark;
+}
+
+input[type="date"]::-webkit-calendar-picker-indicator {
+  filter: brightness(0) invert(1);
+  cursor: pointer;
+}
+
 #root {
   min-height: 100vh;
 }
@@ -457,10 +467,16 @@ h1 {
 }
 
 
-.pill--subtle {
+.pill--empty {
   border-color: rgba(255, 255, 255, 0.08);
   background: rgba(255, 255, 255, 0.04);
   color: var(--muted);
+}
+
+.pill--filled {
+  border-color: rgba(255, 255, 255, 0.16);
+  background: rgba(255, 255, 255, 0.09);
+  color: #e9f2ff;
 }
 
 .list--focus .list__header {
@@ -1205,3 +1221,428 @@ input[type="time"].todo-edit-input {
   }
 }
 
+/* Dev Panel Matrix-style */
+.dev-panel {
+  background: linear-gradient(135deg, #001a00 0%, #000000 100%) !important;
+  border: 1px solid #00ff00 !important;
+  box-shadow: 0 0 20px rgba(0, 255, 0, 0.3) !important;
+}
+
+.dev-panel-eyebrow {
+  color: #00ff00 !important;
+  text-shadow: 0 0 10px rgba(0, 255, 0, 0.5);
+  font-family: 'Courier New', monospace;
+}
+
+.dev-panel-title {
+  color: #00ff00 !important;
+  text-shadow: 0 0 15px rgba(0, 255, 0, 0.7);
+  font-family: 'Courier New', monospace;
+}
+
+.dev-panel-lede {
+  color: #00cc00 !important;
+  font-family: 'Courier New', monospace;
+}
+
+.dev-panel-section-title {
+  color: #00ff00 !important;
+  text-shadow: 0 0 10px rgba(0, 255, 0, 0.5);
+  font-family: 'Courier New', monospace;
+}
+
+.dev-panel-copy {
+  color: #00cc00 !important;
+  font-family: 'Courier New', monospace;
+  font-size: 0.9rem;
+}
+
+.dev-panel-controls {
+  margin-top: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.dev-panel-label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.dev-panel-label-text {
+  color: #00ff00;
+  font-family: 'Courier New', monospace;
+  font-size: 0.9rem;
+  text-shadow: 0 0 5px rgba(0, 255, 0, 0.3);
+}
+
+.dev-panel-input {
+  padding: 0.75rem;
+  background: #000000 !important;
+  border: 2px solid #00ff00 !important;
+  border-radius: 4px;
+  color: #00ff00 !important;
+  font-family: 'Courier New', monospace;
+  font-size: 1rem;
+  box-shadow: inset 0 0 10px rgba(0, 255, 0, 0.1);
+}
+
+.dev-panel-input:focus {
+  outline: none;
+  border-color: #00ff00 !important;
+  box-shadow: 0 0 15px rgba(0, 255, 0, 0.5), inset 0 0 10px rgba(0, 255, 0, 0.2);
+}
+
+.dev-panel-input::-webkit-calendar-picker-indicator {
+  filter: invert(1) brightness(2) hue-rotate(90deg);
+  cursor: pointer;
+}
+
+.dev-panel-buttons {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.dev-panel-button {
+  padding: 0.75rem 1.5rem;
+  background: #000000;
+  border: 2px solid #00ff00;
+  border-radius: 4px;
+  color: #00ff00;
+  font-family: 'Courier New', monospace;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-shadow: 0 0 5px rgba(0, 255, 0, 0.5);
+}
+
+.dev-panel-button:hover {
+  background: #00ff00;
+  color: #000000;
+  box-shadow: 0 0 20px rgba(0, 255, 0, 0.7);
+  text-shadow: none;
+}
+
+.dev-panel-button--primary {
+  background: #003300;
+  box-shadow: 0 0 10px rgba(0, 255, 0, 0.3);
+}
+
+.dev-panel-button--primary:hover {
+  background: #00ff00;
+  box-shadow: 0 0 25px rgba(0, 255, 0, 0.9);
+}
+
+.dev-panel-button--secondary {
+  opacity: 0.8;
+}
+
+.dev-panel-button--small {
+  padding: 0.5rem 1rem;
+  font-size: 0.85rem;
+}
+
+.dev-panel-quick {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.dev-panel-quick-buttons {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.dev-panel-info {
+  margin-top: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.dev-panel-info-item {
+  display: flex;
+  justify-content: space-between;
+  padding: 0.75rem;
+  background: #000000;
+  border: 1px solid #00ff00;
+  border-radius: 4px;
+  font-family: 'Courier New', monospace;
+}
+
+.dev-panel-info-label {
+  color: #00cc00;
+  font-weight: bold;
+}
+
+.dev-panel-info-value {
+  color: #00ff00;
+  text-shadow: 0 0 5px rgba(0, 255, 0, 0.3);
+}
+
+.sidebar__link--dev {
+  color: #00ff00 !important;
+  text-shadow: 0 0 5px rgba(0, 255, 0, 0.3);
+  font-family: 'Courier New', monospace;
+  border: 1px solid transparent;
+}
+
+.sidebar__link--dev:hover {
+  background: rgba(0, 255, 0, 0.1) !important;
+  border-color: #00ff00;
+}
+
+.sidebar__link--dev.is-active {
+  background: rgba(0, 255, 0, 0.15) !important;
+  border-color: #00ff00;
+  box-shadow: 0 0 10px rgba(0, 255, 0, 0.3);
+}
+
+.setting-toggle-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 1rem;
+  font-size: 0.95rem;
+}
+
+.setting-toggle-label {
+  color: var(--sidebar-text);
+}
+
+.toggle-switch {
+  position: relative;
+  display: inline-block;
+  width: 50px;
+  height: 26px;
+}
+
+.toggle-switch input[type="checkbox"] {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.toggle-slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--sidebar-border);
+  transition: background-color 0.3s, border-color 0.3s, box-shadow 0.3s;
+  border-radius: 26px;
+}
+
+.toggle-slider:before {
+  position: absolute;
+  content: "";
+  height: 18px;
+  width: 18px;
+  left: 3px;
+  bottom: 3px;
+  background-color: #94a3b8;
+  transition: transform 0.3s, background-color 0.3s, box-shadow 0.3s;
+  border-radius: 50%;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.toggle-switch input:checked + .toggle-slider {
+  background: linear-gradient(135deg, #5a8fd8, #3b82f6);
+  border-color: rgba(90, 143, 216, 0.6);
+  box-shadow: 0 0 12px rgba(90, 143, 216, 0.3);
+}
+
+.toggle-switch input:checked + .toggle-slider:before {
+  transform: translateX(24px);
+  background-color: #f8fafc;
+  box-shadow: 0 2px 8px rgba(90, 143, 216, 0.4);
+}
+
+.toggle-switch input:focus + .toggle-slider {
+  box-shadow: 0 0 0 2px rgba(90, 143, 216, 0.2);
+}
+
+.toggle-switch input:checked:focus + .toggle-slider {
+  box-shadow: 0 0 12px rgba(90, 143, 216, 0.4), 0 0 0 2px rgba(90, 143, 216, 0.2);
+}
+/* Dev Panel Navigation Bar */
+.dev-panel-nav {
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+  background: linear-gradient(135deg, #001a00 0%, #000000 100%);
+  border-bottom: 2px solid #00ff00;
+  box-shadow: 0 4px 20px rgba(0, 255, 0, 0.3);
+  padding: 0.75rem 1.5rem;
+}
+
+.dev-panel-nav-content {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+  font-family: 'Courier New', monospace;
+}
+
+.dev-panel-nav-label {
+  color: #00ff00;
+  font-weight: bold;
+  font-size: 0.9rem;
+  text-shadow: 0 0 5px rgba(0, 255, 0, 0.5);
+}
+
+.dev-panel-nav-input {
+  padding: 0.5rem 0.75rem;
+  background: #000000 !important;
+  border: 1px solid #00ff00 !important;
+  border-radius: 4px;
+  color: #00ff00 !important;
+  font-family: 'Courier New', monospace;
+  font-size: 0.9rem;
+  box-shadow: inset 0 0 5px rgba(0, 255, 0, 0.1);
+}
+
+.dev-panel-nav-input:focus {
+  outline: none;
+  box-shadow: 0 0 10px rgba(0, 255, 0, 0.5), inset 0 0 5px rgba(0, 255, 0, 0.2);
+}
+
+.dev-panel-nav-input::-webkit-calendar-picker-indicator {
+  filter: invert(1) brightness(2) hue-rotate(90deg);
+  cursor: pointer;
+}
+
+.dev-panel-nav-button {
+  padding: 0.5rem 1rem;
+  background: #000000;
+  border: 1px solid #00ff00;
+  border-radius: 4px;
+  color: #00ff00;
+  font-family: 'Courier New', monospace;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-size: 0.85rem;
+  text-shadow: 0 0 5px rgba(0, 255, 0, 0.5);
+}
+
+.dev-panel-nav-button:hover {
+  background: #00ff00;
+  color: #000000;
+  box-shadow: 0 0 15px rgba(0, 255, 0, 0.7);
+  text-shadow: none;
+}
+
+.dev-panel-nav-status {
+  color: #00cc00;
+  font-size: 0.85rem;
+  margin-left: auto;
+}
+
+@media (max-width: 768px) {
+  .dev-panel-nav-content {
+    gap: 0.5rem;
+  }
+  
+  .dev-panel-nav-status {
+    margin-left: 0;
+    width: 100%;
+  }
+}
+
+/* Dev Panel in Sidebar */
+.sidebar-dev-panel {
+  padding: 1rem;
+  margin: 0 0.75rem 1rem 0.75rem;
+  background: linear-gradient(135deg, #001a00 0%, #000000 100%);
+  border: 1px solid #00ff00;
+  border-radius: 6px;
+  box-shadow: 0 0 15px rgba(0, 255, 0, 0.2);
+}
+
+.sidebar-dev-panel-title {
+  color: #00ff00;
+  font-family: 'Courier New', monospace;
+  font-weight: bold;
+  font-size: 0.85rem;
+  text-shadow: 0 0 8px rgba(0, 255, 0, 0.5);
+  margin-bottom: 0.75rem;
+  text-align: center;
+}
+
+.sidebar-dev-panel-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.sidebar-dev-panel-label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  font-family: 'Courier New', monospace;
+}
+
+.sidebar-dev-panel-label span {
+  color: #00cc00;
+  font-size: 0.75rem;
+  text-shadow: 0 0 5px rgba(0, 255, 0, 0.3);
+}
+
+.sidebar-dev-panel-input {
+  padding: 0.5rem;
+  background: #000000 !important;
+  border: 1px solid #00ff00 !important;
+  border-radius: 4px;
+  color: #00ff00 !important;
+  font-family: 'Courier New', monospace;
+  font-size: 0.8rem;
+  box-shadow: inset 0 0 5px rgba(0, 255, 0, 0.1);
+}
+
+.sidebar-dev-panel-input:focus {
+  outline: none;
+  box-shadow: 0 0 10px rgba(0, 255, 0, 0.5), inset 0 0 5px rgba(0, 255, 0, 0.2);
+}
+
+.sidebar-dev-panel-input::-webkit-calendar-picker-indicator {
+  filter: invert(1) brightness(2) hue-rotate(90deg);
+  cursor: pointer;
+}
+
+.sidebar-dev-panel-button {
+  padding: 0.5rem;
+  background: #000000;
+  border: 1px solid #00ff00;
+  border-radius: 4px;
+  color: #00ff00;
+  font-family: 'Courier New', monospace;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-size: 0.75rem;
+  text-shadow: 0 0 5px rgba(0, 255, 0, 0.5);
+}
+
+.sidebar-dev-panel-button:hover {
+  background: #00ff00;
+  color: #000000;
+  box-shadow: 0 0 15px rgba(0, 255, 0, 0.7);
+  text-shadow: none;
+}
+
+.sidebar-dev-panel-status {
+  color: #00cc00;
+  font-family: 'Courier New', monospace;
+  font-size: 0.75rem;
+  text-align: center;
+  padding: 0.4rem;
+  background: rgba(0, 255, 0, 0.05);
+  border-radius: 4px;
+}

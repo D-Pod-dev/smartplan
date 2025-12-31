@@ -7,7 +7,6 @@ import TagManager from '../components/TagManager'
 import TaskDisplay from '../components/TaskDisplay'
 import TodoItem from '../components/TodoItem'
 import { getCurrentDate } from '../utils/dateUtils'
-import { calculateFirstOccurrence, calculateNextOccurrence, isRecurringTask } from '../utils/recurrenceUtils'
 
 const seedTasks = [
   {
@@ -50,7 +49,7 @@ const emptyDraft = () => ({
   recurrenceInterval: '',
   recurrenceUnit: 'day',
   recurrenceDaysOfWeek: [],
-  inToday: true,
+  inToday: false,
 })
 
 const isIsoDate = (value) => /^\d{4}-\d{2}-\d{2}$/.test(value || '')
@@ -121,7 +120,6 @@ const normalizeTask = (task) => {
     tags: normalizedTags,
     priority: task?.priority ?? 'None',
     completed: Boolean(task?.completed),
-    completedDate: task?.completedDate || null,
     timeAllocated: Number.isFinite(timeAllocated) ? timeAllocated : null,
     target: target === null ? null : (Number.isFinite(target) ? target : String(target)),
     goalId: task?.goalId ?? null,
@@ -160,7 +158,7 @@ const deriveInitialTags = (tasks) => {
   return Array.from(new Set(tasks.flatMap((task) => task.tags || [])))
 }
 
-export default function Today({ tags = [], goals = [], setGoals = () => {}, onAddTag, onRenameTag, onDeleteTag, onRegisterDeleteTasksByGoalId }) {
+export default function Tasks({ tags = [], goals = [], setGoals = () => {}, onAddTag, onRenameTag, onDeleteTag, onRegisterDeleteTasksByGoalId }) {
   const navigate = useNavigate()
   const initialTasks = useMemo(() => deriveInitialTasks(), [])
   const [tasks, setTasks] = useState(initialTasks)
@@ -330,18 +328,6 @@ export default function Today({ tags = [], goals = [], setGoals = () => {}, onAd
       return
     }
 
-    // Auto-check inToday when due date is set to today
-    if (field === 'dueDate') {
-      const today = getCurrentDate()
-      const todayStr = today.toISOString().split('T')[0]
-      setter((prev) => ({ 
-        ...prev, 
-        [field]: value,
-        inToday: value === todayStr ? true : prev.inToday
-      }))
-      return
-    }
-
     setter((prev) => ({ ...prev, [field]: value }))
   }
 
@@ -421,25 +407,17 @@ export default function Today({ tags = [], goals = [], setGoals = () => {}, onAd
     const parsedTarget = composerDraft.target === '' ? null : Number(composerDraft.target)
     const target = Number.isFinite(parsedTarget) ? parsedTarget : null
 
-    const recurrence = buildRecurrenceFromDraft(composerDraft)
-    
-    // For recurring tasks, calculate the first occurrence
-    let dueDate = composerDraft.dueDate
-    if (recurrence.type !== 'None') {
-      dueDate = calculateFirstOccurrence(recurrence, composerDraft.dueDate)
-    }
-
     const newTask = {
       id: Date.now(),
       title,
-      due: { date: dueDate, time: composerDraft.dueTime },
+      due: { date: composerDraft.dueDate, time: composerDraft.dueTime },
       priority: composerDraft.priority || 'None',
       tags: normalizedTags,
       completed: false,
       timeAllocated,
       target,
       goalId: null,
-      recurrence,
+      recurrence: buildRecurrenceFromDraft(composerDraft),
       inToday: composerDraft.inToday,
     }
 
@@ -489,46 +467,7 @@ export default function Today({ tags = [], goals = [], setGoals = () => {}, onAd
       }
     }
 
-    const currentDate = getCurrentDate().toISOString().split('T')[0]
-    
-    // If completing a recurring task, create the next occurrence
-    if (!task.completed && isRecurringTask(task)) {
-      const nextDueDate = calculateNextOccurrence(task.recurrence, task.due?.date)
-      
-      if (nextDueDate) {
-        const nextTask = {
-          ...task,
-          id: Date.now() + Math.random(),
-          completed: false,
-          completedDate: null,
-          due: { date: nextDueDate, time: task.due?.time || '' },
-        }
-        
-        setTasks((prev) => [
-          ...prev.map((t) => 
-            t.id === id 
-              ? { 
-                  ...t, 
-                  completed: true,
-                  completedDate: currentDate
-                } 
-              : t
-          ),
-          nextTask
-        ])
-        return
-      }
-    }
-    
-    setTasks((prev) => prev.map((t) => 
-      t.id === id 
-        ? { 
-            ...t, 
-            completed: !t.completed,
-            completedDate: !t.completed ? currentDate : null
-          } 
-        : t
-    ))
+    setTasks((prev) => prev.map((t) => (t.id === id ? { ...t, completed: !t.completed } : t)))
   }
 
   const startEdit = (task) => {
@@ -587,15 +526,6 @@ export default function Today({ tags = [], goals = [], setGoals = () => {}, onAd
   }
 
   const deleteTask = (id) => {
-    const task = tasks.find((t) => t.id === id)
-    
-    if (task && isRecurringTask(task)) {
-      const confirmMessage = `Delete "${task.title}"? This will remove all future occurrences of this recurring task.`
-      if (!window.confirm(confirmMessage)) {
-        return
-      }
-    }
-    
     setTasks((prev) => prev.filter((t) => t.id !== id))
     if (editingId === id) {
       cancelEdit()
@@ -778,53 +708,21 @@ export default function Today({ tags = [], goals = [], setGoals = () => {}, onAd
     style: { flex: '0 1 auto' },
   }
 
-  // Filter tasks to only show incomplete tasks due tomorrow or earlier
-  const filteredTasks = useMemo(() => {
-    const today = getCurrentDate()
-    today.setHours(0, 0, 0, 0)
-    const todayStr = today.toISOString().split('T')[0]
-    const tomorrow = new Date(today)
-    tomorrow.setDate(tomorrow.getDate() + 1)
-    const tomorrowStr = tomorrow.toISOString().split('T')[0]
-
-    return tasks.filter((task) => {
-      // Hide completed tasks from previous days
-      if (task.completed && task.completedDate && task.completedDate < todayStr) {
-        return false
-      }
-      
-      // Show completed tasks from today
-      if (task.completed && task.completedDate === todayStr) {
-        return true
-      }
-      
-      // Show incomplete tasks marked as "In Today"
-      if (task.inToday) return true
-      
-      // If no due date, don't show it
-      if (!task.due?.date) return false
-      
-      // Show tasks due tomorrow or earlier
-      return task.due.date <= tomorrowStr
-    })
-  }, [tasks, currentDateKey])
-
   return (
     <>
       <header className="page__header">
         <p className="eyebrow">SmartPlan</p>
-        <h1>Today</h1>
-        <p className="lede">Plan your day with ease, for maximum productivity.</p>
+        <h1>Tasks</h1>
+        <p className="lede">View and manage all your tasks.</p>
         <div className="actions">
           <button className="action primary" type="button">Ask SmartPlan</button>
           <button className="action ghost" type="button" onClick={focusAdd}>Add task</button>
-          <button className="action link" type="button">View backlog</button>
         </div>
       </header>
 
       <section className="panels panels--grid">
         <div className="panel panel--focus">
-          <div className="panel__title">Today&apos;s tasks</div>
+          <div className="panel__title">All tasks</div>
 
           <ComposerRow
             addButtonAria="Add task"
@@ -836,7 +734,7 @@ export default function Today({ tags = [], goals = [], setGoals = () => {}, onAd
           />
 
           <ul className="list list--focus">
-            {filteredTasks.map((task) => {
+            {tasks.map((task) => {
               const isEditing = editingId === task.id
               return (
                 <TodoItem
@@ -1087,4 +985,3 @@ export default function Today({ tags = [], goals = [], setGoals = () => {}, onAd
     </>
   )
 }
-

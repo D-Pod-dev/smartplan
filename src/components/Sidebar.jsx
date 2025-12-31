@@ -3,6 +3,9 @@ import '../App.css'
 
 const mainNavItems = [
   { label: 'Today', to: '/' },
+  { label: 'Tasks', to: '/tasks' },
+  { label: 'Goals', to: '/goals' },
+  { label: 'Focus', to: '/focus' },
   { label: 'SmartPlan Chat', to: '/chat' },
 ]
 
@@ -11,7 +14,7 @@ const footerNavItems = [
   { label: 'Settings', to: '/settings' },
 ]
 
-export default function Sidebar({ isOpen, onClose }) {
+export default function Sidebar({ isOpen, onClose, devPanelEnabled, devPanelInSidebar, debugDate, onDateChange }) {
   const navigate = useNavigate()
   return (
     <aside
@@ -46,7 +49,47 @@ export default function Sidebar({ isOpen, onClose }) {
         ))}
       </nav>
       <div className="sidebar__footer">
+        {devPanelInSidebar && (
+          <div className="sidebar-dev-panel">
+            <div className="sidebar-dev-panel-title">Dev Panel</div>
+            <div className="sidebar-dev-panel-controls">
+              <label className="sidebar-dev-panel-label">
+                <span>Debug Date</span>
+                <input 
+                  type="date" 
+                  value={debugDate || (() => {
+                    const today = new Date()
+                    const year = today.getFullYear()
+                    const month = String(today.getMonth() + 1).padStart(2, '0')
+                    const day = String(today.getDate()).padStart(2, '0')
+                    return `${year}-${month}-${day}`
+                  })()}
+                  onChange={(e) => onDateChange(e.target.value)}
+                  className="sidebar-dev-panel-input"
+                />
+              </label>
+              <button 
+                onClick={() => onDateChange(null)}
+                className="sidebar-dev-panel-button"
+              >
+                Reset
+              </button>
+              <div className="sidebar-dev-panel-status">
+                {debugDate ? '🟢 Override Active' : '⚪ System Date'}
+              </div>
+            </div>
+          </div>
+        )}
         <nav className="sidebar__nav">
+          {devPanelEnabled && (
+            <NavLink
+              to="/dev"
+              className={({ isActive }) => `sidebar__link sidebar__link--dev ${isActive ? 'is-active' : ''}`}
+              onClick={onClose}
+            >
+              Dev Panel
+            </NavLink>
+          )}
           {footerNavItems.map((item) => (
             <NavLink
               key={item.to}
