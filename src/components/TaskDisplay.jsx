@@ -77,6 +77,24 @@ const formatRecurrence = (recurrence) => {
   return normalized.type
 }
 
+const priorityStyles = {
+  High: {
+    background: 'rgba(255, 107, 61, 0.16)',
+    borderColor: 'rgba(255, 107, 61, 0.45)',
+    color: '#ff8a62',
+  },
+  Medium: {
+    background: 'rgba(224, 162, 0, 0.18)',
+    borderColor: 'rgba(224, 162, 0, 0.42)',
+    color: '#f4c74a',
+  },
+  Low: {
+    background: 'rgba(74, 163, 255, 0.16)',
+    borderColor: 'rgba(74, 163, 255, 0.42)',
+    color: '#8cc7ff',
+  },
+}
+
 const renderTags = (taskTags) => {
   if (!taskTags?.length) {
     return <span className="pill pill--empty">No tags</span>
@@ -91,12 +109,17 @@ export default function TaskDisplay({ task }) {
     <div className="todo-display">
       <div className={`list__title todo-title ${task.completed ? 'is-completed' : ''}`}>
         {task.title}
-        {task.target && <span className="pill pill--filled" style={{ marginLeft: '0.5rem' }}>{task.target}</span>}
+        {task.objective && <span className="pill pill--filled" style={{ marginLeft: '0.5rem' }}>{task.objective}</span>}
         {(task.timeAllocated && task.timeAllocated > 0) && <span className="pill pill--filled" style={{ marginLeft: '0.5rem' }}>{task.timeAllocated} min</span>}
       </div>
       <div className="list__meta todo-meta">
         <span className={`pill ${task.due ? 'pill--filled' : 'pill--empty'}`}>{formatDue(task.due) || 'No due date'}</span>
-        <span className={`pill ${task.priority === 'None' ? 'pill--empty' : 'pill--filled'}`}>{task.priority === 'None' ? 'No priority' : `${task.priority} priority`}</span>
+        <span
+          className={`pill ${task.priority === 'None' ? 'pill--empty' : 'pill--filled'}`}
+          style={task.priority && task.priority !== 'None' ? priorityStyles[task.priority] : undefined}
+        >
+          {task.priority === 'None' ? 'No priority' : `${task.priority} priority`}
+        </span>
         {formatRecurrence(task.recurrence) !== 'Not recurring' && (
           <span className="pill pill--filled">{formatRecurrence(task.recurrence)}</span>
         )}

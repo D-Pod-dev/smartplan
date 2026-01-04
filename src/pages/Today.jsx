@@ -13,27 +13,66 @@ const seedTasks = [
   {
     id: 1,
     title: 'Outline launch checklist',
-    due: { date: '2025-12-29', time: '11:00' },
-    tags: ['Launch'],
+    due: { date: '2026-01-03', time: '11:00' },
+    tags: ['Launch', 'Planning'],
     priority: 'High',
     completed: false,
     timeAllocated: 90,
-    target: null,
+    objective: '5 items',
     goalId: null,
     recurrence: { type: 'None', interval: null, unit: 'day', daysOfWeek: [] },
-    inToday: false,
+    inToday: true,
   },
   {
     id: 2,
     title: 'Reply to customer threads',
-    due: { date: '2025-12-29', time: '13:00' },
-    tags: ['CX'],
+    due: { date: '2026-01-02', time: '13:00' },
+    tags: ['CX', 'Communication'],
     priority: 'Medium',
     completed: false,
     timeAllocated: 45,
-    target: null,
+    objective: '8 emails',
     goalId: null,
-    recurrence: { type: 'None', interval: null, unit: 'day', daysOfWeek: [] },
+    recurrence: { type: 'Daily', interval: null, unit: 'day', daysOfWeek: [] },
+    inToday: true,
+  },
+  {
+    id: 3,
+    title: 'Team standup',
+    due: { date: '2026-01-02', time: '09:00' },
+    tags: ['Meetings'],
+    priority: 'High',
+    completed: false,
+    timeAllocated: 15,
+    objective: null,
+    goalId: null,
+    recurrence: { type: 'Weekly', interval: null, unit: 'week', daysOfWeek: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'] },
+    inToday: true,
+  },
+  {
+    id: 4,
+    title: 'Review pull requests',
+    due: { date: '2026-01-02', time: '15:30' },
+    tags: ['Development', 'Code Review'],
+    priority: 'Medium',
+    completed: false,
+    timeAllocated: 60,
+    objective: '3 PRs',
+    goalId: null,
+    recurrence: { type: 'Custom', interval: 2, unit: 'day', daysOfWeek: [] },
+    inToday: true,
+  },
+  {
+    id: 5,
+    title: 'Weekly planning session',
+    due: { date: '2026-01-06', time: '10:00' },
+    tags: ['Planning', 'Personal'],
+    priority: 'Low',
+    completed: false,
+    timeAllocated: 30,
+    objective: null,
+    goalId: null,
+    recurrence: { type: 'Weekly', interval: null, unit: 'week', daysOfWeek: ['Mon'] },
     inToday: false,
   },
 ]
@@ -45,7 +84,7 @@ const emptyDraft = () => ({
   priority: 'None',
   tags: [],
   timeAllocated: '',
-  target: '',
+  objective: '',
   recurrenceType: 'None',
   recurrenceInterval: '',
   recurrenceUnit: 'day',
@@ -105,13 +144,13 @@ const normalizeTask = (task) => {
 
   const rawTime = task?.timeAllocated
   const timeAllocated = rawTime === null || rawTime === undefined || rawTime === '' ? null : Number(rawTime)
-  const rawTarget = task?.target
-  // Keep target as string if it contains non-numeric characters (e.g., "10 pages"), otherwise convert to number
-  const target = rawTarget === null || rawTarget === undefined || rawTarget === '' 
+  const rawObjective = task?.objective
+  // Keep objective as string if it contains non-numeric characters (e.g., "10 pages"), otherwise convert to number
+  const objective = rawObjective === null || rawObjective === undefined || rawObjective === '' 
     ? null 
-    : typeof rawTarget === 'string' && isNaN(Number(rawTarget))
-      ? rawTarget
-      : Number(rawTarget)
+    : typeof rawObjective === 'string' && isNaN(Number(rawObjective))
+      ? rawObjective
+      : Number(rawObjective)
   const recurrence = normalizeRecurrence(task?.recurrence)
 
   return {
@@ -123,7 +162,7 @@ const normalizeTask = (task) => {
     completed: Boolean(task?.completed),
     completedDate: task?.completedDate || null,
     timeAllocated: Number.isFinite(timeAllocated) ? timeAllocated : null,
-    target: target === null ? null : (Number.isFinite(target) ? target : String(target)),
+    objective: objective === null ? null : (Number.isFinite(objective) ? objective : String(objective)),
     goalId: task?.goalId ?? null,
     recurrence,
     inToday: Boolean(task?.inToday),
@@ -167,6 +206,9 @@ export default function Today({ tags = [], goals = [], setGoals = () => {}, onAd
   const [editingId, setEditingId] = useState(null)
   const [editingDraft, setEditingDraft] = useState(() => emptyDraft())
   const [composerDraft, setComposerDraft] = useState(() => emptyDraft())
+  const [sortOption, setSortOption] = useState('default')
+  const [sortDirection, setSortDirection] = useState('asc')
+  const [composerOpen, setComposerOpen] = useState(false)
   const [tagManagerOpen, setTagManagerOpen] = useState(false)
   const [tagManagerContext, setTagManagerContext] = useState('composer')
   const [originalTags, setOriginalTags] = useState([])
@@ -175,6 +217,34 @@ export default function Today({ tags = [], goals = [], setGoals = () => {}, onAd
   const editingSettingsRef = useRef(null)
   const [currentDateKey, setCurrentDateKey] = useState(() => getCurrentDate().toISOString().split('T')[0])
   const [goalTaskRefreshTrigger, setGoalTaskRefreshTrigger] = useState(0)
+
+  const sortTasksForDisplay = (list, option, direction = 'asc') => {
+    const priorityRank = { High: 0, Medium: 1, Low: 2, None: 3 }
+    const copy = [...list]
+    if (option === 'priority') {
+      copy.sort((a, b) => (priorityRank[a.priority] ?? 4) - (priorityRank[b.priority] ?? 4))
+      return direction === 'desc' ? copy.reverse() : copy
+    }
+    if (option === 'due') {
+      const toDateValue = (task) => {
+        if (!task.due?.date) return Number.POSITIVE_INFINITY
+        const base = new Date(`${task.due.date}T${task.due.time || '00:00'}`).getTime()
+        return Number.isFinite(base) ? base : Number.POSITIVE_INFINITY
+      }
+      copy.sort((a, b) => toDateValue(a) - toDateValue(b))
+      return direction === 'desc' ? copy.reverse() : copy
+    }
+    if (option === 'time') {
+      copy.sort((a, b) => (b.timeAllocated ?? 0) - (a.timeAllocated ?? 0))
+      return direction === 'desc' ? copy.reverse() : copy
+    }
+    if (option === 'title') {
+      copy.sort((a, b) => (a.title || '').localeCompare(b.title || ''))
+      return direction === 'desc' ? copy.reverse() : copy
+    }
+    if (direction === 'desc') return copy.reverse()
+    return copy
+  }
 
   // Check for date changes every minute to trigger re-render
   useEffect(() => {
@@ -251,7 +321,7 @@ export default function Today({ tags = [], goals = [], setGoals = () => {}, onAd
                     title: `Work on '${goal.title}'`,
                     due: { date: todayStr, time: t.due?.time || '' },
                     timeAllocated: isMinutesBased ? perDay : t.timeAllocated,
-                    target: isMinutesBased ? t.target : `${perDay} ${goal.targetUnit}`,
+                    objective: isMinutesBased ? t.objective : `${perDay} ${goal.targetUnit}`,
                     tags: tagsWithGoal,
                     priority: goal.priority === 'none' ? 'None' : goal.priority.charAt(0).toUpperCase() + goal.priority.slice(1),
                   }
@@ -267,7 +337,7 @@ export default function Today({ tags = [], goals = [], setGoals = () => {}, onAd
             tags: tagsWithGoal,
             completed: false,
             timeAllocated: isMinutesBased ? perDay : null,
-            target: isMinutesBased ? null : `${perDay} ${goal.targetUnit}`,
+            objective: isMinutesBased ? null : `${perDay} ${goal.targetUnit}`,
             goalId: goal.id,
             recurrence: { type: 'None', interval: null, unit: 'day', daysOfWeek: [] },
             inToday: true,
@@ -418,8 +488,8 @@ export default function Today({ tags = [], goals = [], setGoals = () => {}, onAd
     normalizedTags.forEach((tag) => onAddTag(tag))
     const parsedTime = composerDraft.timeAllocated === '' ? null : Number(composerDraft.timeAllocated)
     const timeAllocated = Number.isFinite(parsedTime) ? parsedTime : null
-    const parsedTarget = composerDraft.target === '' ? null : Number(composerDraft.target)
-    const target = Number.isFinite(parsedTarget) ? parsedTarget : null
+    const parsedObjective = composerDraft.objective === '' ? null : Number(composerDraft.objective)
+    const objective = Number.isFinite(parsedObjective) ? parsedObjective : null
 
     const recurrence = buildRecurrenceFromDraft(composerDraft)
     
@@ -437,7 +507,7 @@ export default function Today({ tags = [], goals = [], setGoals = () => {}, onAd
       tags: normalizedTags,
       completed: false,
       timeAllocated,
-      target,
+      objective,
       goalId: null,
       recurrence,
       inToday: composerDraft.inToday,
@@ -445,6 +515,7 @@ export default function Today({ tags = [], goals = [], setGoals = () => {}, onAd
 
     setTasks((prev) => [newTask, ...prev])
     resetComposer()
+    setComposerOpen(false)
   }
 
   const toggleTask = (id) => {
@@ -454,16 +525,16 @@ export default function Today({ tags = [], goals = [], setGoals = () => {}, onAd
     if (!task) return
 
     // If task is being completed and has a goalId, update the goal's progress
-    if (!task.completed && task.goalId && task.target) {
-      // Parse numeric value from target (e.g., "10 pages" -> 10)
-      const targetValue = typeof task.target === 'string' ? parseFloat(task.target) : task.target
-      if (Number.isFinite(targetValue)) {
+    if (!task.completed && task.goalId && task.objective) {
+      // Parse numeric value from objective (e.g., "10 pages" -> 10)
+      const objectiveValue = typeof task.objective === 'string' ? parseFloat(task.objective) : task.objective
+      if (Number.isFinite(objectiveValue)) {
         setGoals((prev) =>
           prev.map((goal) =>
             goal.id === task.goalId
               ? {
                   ...goal,
-                  progress: (goal.progress ?? 0) + targetValue,
+                  progress: (goal.progress ?? 0) + objectiveValue,
                 }
               : goal
           )
@@ -472,16 +543,16 @@ export default function Today({ tags = [], goals = [], setGoals = () => {}, onAd
     }
 
     // If task is being uncompleted and has a goalId, decrease the goal's progress
-    if (task.completed && task.goalId && task.target) {
-      // Parse numeric value from target (e.g., "10 pages" -> 10)
-      const targetValue = typeof task.target === 'string' ? parseFloat(task.target) : task.target
-      if (Number.isFinite(targetValue)) {
+    if (task.completed && task.goalId && task.objective) {
+      // Parse numeric value from objective (e.g., "10 pages" -> 10)
+      const objectiveValue = typeof task.objective === 'string' ? parseFloat(task.objective) : task.objective
+      if (Number.isFinite(objectiveValue)) {
         setGoals((prev) =>
           prev.map((goal) =>
             goal.id === task.goalId
               ? {
                   ...goal,
-                  progress: Math.max(0, (goal.progress ?? 0) - targetValue),
+                  progress: Math.max(0, (goal.progress ?? 0) - objectiveValue),
                 }
               : goal
           )
@@ -540,7 +611,7 @@ export default function Today({ tags = [], goals = [], setGoals = () => {}, onAd
       priority: task.priority || 'None',
       tags: task.tags || [],
       timeAllocated: task.timeAllocated ?? '',
-      target: task.target ?? '',
+      objective: task.objective ?? '',
       recurrenceType: task.recurrence?.type || 'None',
       recurrenceInterval: task.recurrence?.interval ?? '',
       recurrenceUnit: task.recurrence?.unit || 'day',
@@ -561,12 +632,12 @@ export default function Today({ tags = [], goals = [], setGoals = () => {}, onAd
     const normalizedTags = Array.from(new Set(editingDraft.tags.map((tag) => tag.trim()).filter(Boolean)))
     const parsedTime = editingDraft.timeAllocated === '' || editingDraft.timeAllocated === '0' ? null : Number(editingDraft.timeAllocated)
     const timeAllocated = Number.isFinite(parsedTime) && parsedTime > 0 ? parsedTime : null
-    // Keep target as string if it contains non-numeric characters, otherwise convert to number
-    const target = editingDraft.target === '' 
+    // Keep objective as string if it contains non-numeric characters, otherwise convert to number
+    const objective = editingDraft.objective === '' 
       ? null 
-      : typeof editingDraft.target === 'string' && isNaN(Number(editingDraft.target))
-        ? editingDraft.target
-        : Number(editingDraft.target)
+      : typeof editingDraft.objective === 'string' && isNaN(Number(editingDraft.objective))
+        ? editingDraft.objective
+        : Number(editingDraft.objective)
 
     setTasks((prev) => prev.map((t) => (t.id === id
       ? {
@@ -576,7 +647,7 @@ export default function Today({ tags = [], goals = [], setGoals = () => {}, onAd
           priority: editingDraft.priority || 'None',
           tags: normalizedTags,
           timeAllocated,
-          target,
+          objective,
           recurrence: buildRecurrenceFromDraft(editingDraft),
           inToday: editingDraft.inToday,
         }
@@ -729,15 +800,15 @@ export default function Today({ tags = [], goals = [], setGoals = () => {}, onAd
       style: { flex: '0 1 auto', maxWidth: '140px' },
     },
     {
-      key: 'target',
-      label: 'Target',
+      key: 'objective',
+      label: 'Objective',
       node: (
         <input
           className="todo-edit-input"
           type="text"
           placeholder="Optional"
-          value={composerDraft.target}
-          onChange={(e) => updateDraft('compose', 'target', e.target.value)}
+          value={composerDraft.objective}
+          onChange={(e) => updateDraft('compose', 'objective', e.target.value)}
         />
       ),
       style: { flex: '0 1 auto', maxWidth: '120px' },
@@ -809,6 +880,8 @@ export default function Today({ tags = [], goals = [], setGoals = () => {}, onAd
     })
   }, [tasks, currentDateKey])
 
+  const sortedTasks = useMemo(() => sortTasksForDisplay(filteredTasks, sortOption, sortDirection), [filteredTasks, sortOption, sortDirection])
+
   return (
     <>
       <header className="page__header">
@@ -816,27 +889,57 @@ export default function Today({ tags = [], goals = [], setGoals = () => {}, onAd
         <h1>Today</h1>
         <p className="lede">Plan your day with ease, for maximum productivity.</p>
         <div className="actions">
-          <button className="action primary" type="button">Ask SmartPlan</button>
-          <button className="action ghost" type="button" onClick={focusAdd}>Add task</button>
+          <button className="action primary" type="button" onClick={() => setComposerOpen(!composerOpen)}>Add task</button>
+          <button className="action ghost" type="button">Ask SmartPlan</button>
           <button className="action link" type="button">View backlog</button>
         </div>
       </header>
 
       <section className="panels panels--grid">
         <div className="panel panel--focus">
-          <div className="panel__title">Today&apos;s tasks</div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: composerOpen ? '0.9rem' : '0' }}>
+            <div className="panel__title">Today&apos;s tasks</div>
+            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', marginLeft: 'auto' }}>
+              <label style={{ display: 'inline-flex', alignItems: 'center', gap: '0.45rem', fontSize: '0.95rem', color: 'var(--muted)' }}>
+                <span>Sort</span>
+                <select
+                  className="todo-edit-input"
+                  value={sortOption}
+                  onChange={(e) => setSortOption(e.target.value)}
+                  style={{ width: '180px', padding: '0.35rem 0.5rem', background: 'rgba(255, 255, 255, 0.04)' }}
+                >
+                  <option value="default">Default order</option>
+                  <option value="priority">Priority (High → Low)</option>
+                  <option value="due">Due date</option>
+                  <option value="time">Time allocated</option>
+                  <option value="title">Title A → Z</option>
+                </select>
+              </label>
+              <button
+                type="button"
+                className="pill--utility"
+                onClick={() => setSortDirection((prev) => prev === 'asc' ? 'desc' : 'asc')}
+                title="Reverse sort order"
+                style={{ padding: '0.4rem 0.6rem', fontWeight: 600 }}
+              >
+                Reverse
+              </button>
+            </div>
+          </div>
 
-          <ComposerRow
-            addButtonAria="Add task"
-            onSubmit={addTask}
-            onClear={resetComposer}
-            submitDisabled={!composerDraft.title.trim()}
-            fields={composerFields}
-            tagsSection={composerTagsSection}
-          />
+          {composerOpen && (
+            <ComposerRow
+              addButtonAria="Add task"
+              onSubmit={addTask}
+              onClear={() => { setComposerOpen(false); resetComposer() }}
+              submitDisabled={!composerDraft.title.trim()}
+              fields={composerFields}
+              tagsSection={composerTagsSection}
+            />
+          )}
 
           <ul className="list list--focus">
-            {filteredTasks.map((task) => {
+            {sortedTasks.map((task) => {
               const isEditing = editingId === task.id
               return (
                 <TodoItem
@@ -929,13 +1032,13 @@ export default function Today({ tags = [], goals = [], setGoals = () => {}, onAd
                         />
                       </label>
                       <label className="todo-field" style={{ flex: '0 1 auto', maxWidth: '120px' }}>
-                        <span>Target</span>
+                        <span>Objective</span>
                         <input
                           className="todo-edit-input"
                           type="text"
                           placeholder="Optional"
-                          value={editingDraft?.target || ''}
-                          onChange={(e) => updateDraft('edit', 'target', e.target.value)}
+                          value={editingDraft?.objective || ''}
+                          onChange={(e) => updateDraft('edit', 'objective', e.target.value)}
                           disabled={Boolean(task.goalId && relatedGoal && relatedGoal.targetUnit.toLowerCase() !== 'minutes' && relatedGoal.targetUnit.toLowerCase() !== 'mins')}
                           style={task.goalId && relatedGoal && relatedGoal.targetUnit.toLowerCase() !== 'minutes' && relatedGoal.targetUnit.toLowerCase() !== 'mins' ? { cursor: 'not-allowed', opacity: 0.6 } : {}}
                         />

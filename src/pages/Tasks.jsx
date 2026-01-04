@@ -17,7 +17,7 @@ const seedTasks = [
     priority: 'High',
     completed: false,
     timeAllocated: 90,
-    target: null,
+    objective: null,
     goalId: null,
     recurrence: { type: 'None', interval: null, unit: 'day', daysOfWeek: [] },
     inToday: false,
@@ -30,7 +30,7 @@ const seedTasks = [
     priority: 'Medium',
     completed: false,
     timeAllocated: 45,
-    target: null,
+    objective: null,
     goalId: null,
     recurrence: { type: 'None', interval: null, unit: 'day', daysOfWeek: [] },
     inToday: false,
@@ -44,7 +44,7 @@ const emptyDraft = () => ({
   priority: 'None',
   tags: [],
   timeAllocated: '',
-  target: '',
+  objective: '',
   recurrenceType: 'None',
   recurrenceInterval: '',
   recurrenceUnit: 'day',
@@ -104,13 +104,13 @@ const normalizeTask = (task) => {
 
   const rawTime = task?.timeAllocated
   const timeAllocated = rawTime === null || rawTime === undefined || rawTime === '' ? null : Number(rawTime)
-  const rawTarget = task?.target
-  // Keep target as string if it contains non-numeric characters (e.g., "10 pages"), otherwise convert to number
-  const target = rawTarget === null || rawTarget === undefined || rawTarget === '' 
+  const rawObjective = task?.objective
+  // Keep objective as string if it contains non-numeric characters (e.g., "10 pages"), otherwise convert to number
+  const objective = rawObjective === null || rawObjective === undefined || rawObjective === '' 
     ? null 
-    : typeof rawTarget === 'string' && isNaN(Number(rawTarget))
-      ? rawTarget
-      : Number(rawTarget)
+    : typeof rawObjective === 'string' && isNaN(Number(rawObjective))
+      ? rawObjective
+      : Number(rawObjective)
   const recurrence = normalizeRecurrence(task?.recurrence)
 
   return {
@@ -121,7 +121,7 @@ const normalizeTask = (task) => {
     priority: task?.priority ?? 'None',
     completed: Boolean(task?.completed),
     timeAllocated: Number.isFinite(timeAllocated) ? timeAllocated : null,
-    target: target === null ? null : (Number.isFinite(target) ? target : String(target)),
+    objective: objective === null ? null : (Number.isFinite(objective) ? objective : String(objective)),
     goalId: task?.goalId ?? null,
     recurrence,
     inToday: Boolean(task?.inToday),
@@ -165,6 +165,9 @@ export default function Tasks({ tags = [], goals = [], setGoals = () => {}, onAd
   const [editingId, setEditingId] = useState(null)
   const [editingDraft, setEditingDraft] = useState(() => emptyDraft())
   const [composerDraft, setComposerDraft] = useState(() => emptyDraft())
+  const [sortOption, setSortOption] = useState('default')
+  const [sortDirection, setSortDirection] = useState('asc')
+  const [composerOpen, setComposerOpen] = useState(false)
   const [tagManagerOpen, setTagManagerOpen] = useState(false)
   const [tagManagerContext, setTagManagerContext] = useState('composer')
   const [originalTags, setOriginalTags] = useState([])
@@ -173,6 +176,36 @@ export default function Tasks({ tags = [], goals = [], setGoals = () => {}, onAd
   const editingSettingsRef = useRef(null)
   const [currentDateKey, setCurrentDateKey] = useState(() => getCurrentDate().toISOString().split('T')[0])
   const [goalTaskRefreshTrigger, setGoalTaskRefreshTrigger] = useState(0)
+
+  const sortTasksForDisplay = (list, option, direction = 'asc') => {
+    const priorityRank = { High: 0, Medium: 1, Low: 2, None: 3 }
+    const copy = [...list]
+    if (option === 'priority') {
+      copy.sort((a, b) => (priorityRank[a.priority] ?? 4) - (priorityRank[b.priority] ?? 4))
+      return direction === 'desc' ? copy.reverse() : copy
+    }
+    if (option === 'due') {
+      const toDateValue = (task) => {
+        if (!task.due?.date) return Number.POSITIVE_INFINITY
+        const base = new Date(`${task.due.date}T${task.due.time || '00:00'}`).getTime()
+        return Number.isFinite(base) ? base : Number.POSITIVE_INFINITY
+      }
+      copy.sort((a, b) => toDateValue(a) - toDateValue(b))
+      return direction === 'desc' ? copy.reverse() : copy
+    }
+    if (option === 'time') {
+      copy.sort((a, b) => (b.timeAllocated ?? 0) - (a.timeAllocated ?? 0))
+      return direction === 'desc' ? copy.reverse() : copy
+    }
+    if (option === 'title') {
+      copy.sort((a, b) => (a.title || '').localeCompare(b.title || ''))
+      return direction === 'desc' ? copy.reverse() : copy
+    }
+    if (direction === 'desc') return copy.reverse()
+    return copy
+  }
+
+  const sortedTasks = useMemo(() => sortTasksForDisplay(tasks, sortOption, sortDirection), [tasks, sortOption, sortDirection])
 
   // Check for date changes every minute to trigger re-render
   useEffect(() => {
@@ -423,6 +456,7 @@ export default function Tasks({ tags = [], goals = [], setGoals = () => {}, onAd
 
     setTasks((prev) => [newTask, ...prev])
     resetComposer()
+    setComposerOpen(false)
   }
 
   const toggleTask = (id) => {
@@ -432,16 +466,16 @@ export default function Tasks({ tags = [], goals = [], setGoals = () => {}, onAd
     if (!task) return
 
     // If task is being completed and has a goalId, update the goal's progress
-    if (!task.completed && task.goalId && task.target) {
-      // Parse numeric value from target (e.g., "10 pages" -> 10)
-      const targetValue = typeof task.target === 'string' ? parseFloat(task.target) : task.target
-      if (Number.isFinite(targetValue)) {
+    if (!task.completed && task.goalId && task.objective) {
+      // Parse numeric value from objective (e.g., "10 pages" -> 10)
+      const objectiveValue = typeof task.objective === 'string' ? parseFloat(task.objective) : task.objective
+      if (Number.isFinite(objectiveValue)) {
         setGoals((prev) =>
           prev.map((goal) =>
             goal.id === task.goalId
               ? {
                   ...goal,
-                  progress: (goal.progress ?? 0) + targetValue,
+                  progress: (goal.progress ?? 0) + objectiveValue,
                 }
               : goal
           )
@@ -450,16 +484,16 @@ export default function Tasks({ tags = [], goals = [], setGoals = () => {}, onAd
     }
 
     // If task is being uncompleted and has a goalId, decrease the goal's progress
-    if (task.completed && task.goalId && task.target) {
-      // Parse numeric value from target (e.g., "10 pages" -> 10)
-      const targetValue = typeof task.target === 'string' ? parseFloat(task.target) : task.target
-      if (Number.isFinite(targetValue)) {
+    if (task.completed && task.goalId && task.objective) {
+      // Parse numeric value from objective (e.g., "10 pages" -> 10)
+      const objectiveValue = typeof task.objective === 'string' ? parseFloat(task.objective) : task.objective
+      if (Number.isFinite(objectiveValue)) {
         setGoals((prev) =>
           prev.map((goal) =>
             goal.id === task.goalId
               ? {
                   ...goal,
-                  progress: Math.max(0, (goal.progress ?? 0) - targetValue),
+                  progress: Math.max(0, (goal.progress ?? 0) - objectiveValue),
                 }
               : goal
           )
@@ -479,7 +513,7 @@ export default function Tasks({ tags = [], goals = [], setGoals = () => {}, onAd
       priority: task.priority || 'None',
       tags: task.tags || [],
       timeAllocated: task.timeAllocated ?? '',
-      target: task.target ?? '',
+      objective: task.objective ?? '',
       recurrenceType: task.recurrence?.type || 'None',
       recurrenceInterval: task.recurrence?.interval ?? '',
       recurrenceUnit: task.recurrence?.unit || 'day',
@@ -715,26 +749,56 @@ export default function Tasks({ tags = [], goals = [], setGoals = () => {}, onAd
         <h1>Tasks</h1>
         <p className="lede">View and manage all your tasks.</p>
         <div className="actions">
-          <button className="action primary" type="button">Ask SmartPlan</button>
-          <button className="action ghost" type="button" onClick={focusAdd}>Add task</button>
+          <button className="action primary" type="button" onClick={() => setComposerOpen(!composerOpen)}>Add task</button>
+          <button className="action ghost" type="button">Ask SmartPlan</button>
         </div>
       </header>
 
       <section className="panels panels--grid">
         <div className="panel panel--focus">
-          <div className="panel__title">All tasks</div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: composerOpen ? '0.9rem' : '0' }}>
+            <div className="panel__title">All tasks</div>
+            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', marginLeft: 'auto' }}>
+              <label style={{ display: 'inline-flex', alignItems: 'center', gap: '0.45rem', fontSize: '0.95rem', color: 'var(--muted)' }}>
+                <span>Sort</span>
+                <select
+                  className="todo-edit-input"
+                  value={sortOption}
+                  onChange={(e) => setSortOption(e.target.value)}
+                  style={{ width: '180px', padding: '0.35rem 0.5rem', background: 'rgba(255, 255, 255, 0.04)' }}
+                >
+                  <option value="default">Default order</option>
+                  <option value="priority">Priority (High → Low)</option>
+                  <option value="due">Due date</option>
+                  <option value="time">Time allocated</option>
+                  <option value="title">Title A → Z</option>
+                </select>
+              </label>
+              <button
+                type="button"
+                className="pill--utility"
+                onClick={() => setSortDirection((prev) => prev === 'asc' ? 'desc' : 'asc')}
+                title="Reverse sort order"
+                style={{ padding: '0.4rem 0.6rem', fontWeight: 600 }}
+              >
+                Reverse
+              </button>
+            </div>
+          </div>
 
-          <ComposerRow
-            addButtonAria="Add task"
-            onSubmit={addTask}
-            onClear={resetComposer}
-            submitDisabled={!composerDraft.title.trim()}
-            fields={composerFields}
-            tagsSection={composerTagsSection}
-          />
+          {composerOpen && (
+            <ComposerRow
+              addButtonAria="Add task"
+              onSubmit={addTask}
+              onClear={() => { setComposerOpen(false); resetComposer() }}
+              submitDisabled={!composerDraft.title.trim()}
+              fields={composerFields}
+              tagsSection={composerTagsSection}
+            />
+          )}
 
           <ul className="list list--focus">
-            {tasks.map((task) => {
+            {sortedTasks.map((task) => {
               const isEditing = editingId === task.id
               return (
                 <TodoItem
