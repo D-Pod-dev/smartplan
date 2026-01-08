@@ -8,74 +8,84 @@ import TaskDisplay from '../components/TaskDisplay'
 import TodoItem from '../components/TodoItem'
 import { getCurrentDate } from '../utils/dateUtils'
 import { calculateFirstOccurrence, calculateNextOccurrence, isRecurringTask } from '../utils/recurrenceUtils'
+import { loadInsights, saveInsights, updateInsightsFromTasks } from '../utils/insightTracker'
 
-const seedTasks = [
-  {
-    id: 1,
-    title: 'Outline launch checklist',
-    due: { date: '2026-01-03', time: '11:00' },
-    tags: ['Launch', 'Planning'],
-    priority: 'High',
-    completed: false,
-    timeAllocated: 90,
-    objective: '5 items',
-    goalId: null,
-    recurrence: { type: 'None', interval: null, unit: 'day', daysOfWeek: [] },
-    inToday: true,
-  },
-  {
-    id: 2,
-    title: 'Reply to customer threads',
-    due: { date: '2026-01-02', time: '13:00' },
-    tags: ['CX', 'Communication'],
-    priority: 'Medium',
-    completed: false,
-    timeAllocated: 45,
-    objective: '8 emails',
-    goalId: null,
-    recurrence: { type: 'Daily', interval: null, unit: 'day', daysOfWeek: [] },
-    inToday: true,
-  },
-  {
-    id: 3,
-    title: 'Team standup',
-    due: { date: '2026-01-02', time: '09:00' },
-    tags: ['Meetings'],
-    priority: 'High',
-    completed: false,
-    timeAllocated: 15,
-    objective: null,
-    goalId: null,
-    recurrence: { type: 'Weekly', interval: null, unit: 'week', daysOfWeek: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'] },
-    inToday: true,
-  },
-  {
-    id: 4,
-    title: 'Review pull requests',
-    due: { date: '2026-01-02', time: '15:30' },
-    tags: ['Development', 'Code Review'],
-    priority: 'Medium',
-    completed: false,
-    timeAllocated: 60,
-    objective: '3 PRs',
-    goalId: null,
-    recurrence: { type: 'Custom', interval: 2, unit: 'day', daysOfWeek: [] },
-    inToday: true,
-  },
-  {
-    id: 5,
-    title: 'Weekly planning session',
-    due: { date: '2026-01-06', time: '10:00' },
-    tags: ['Planning', 'Personal'],
-    priority: 'Low',
-    completed: false,
-    timeAllocated: 30,
-    objective: null,
-    goalId: null,
-    recurrence: { type: 'Weekly', interval: null, unit: 'week', daysOfWeek: ['Mon'] },
-    inToday: false,
-  },
-]
+const buildSeedTasks = () => {
+  const todayIso = getCurrentDate().toISOString().split('T')[0]
+
+  const withFirstOccurrence = (recurrence) => {
+    if (!recurrence || recurrence.type === 'None') return todayIso
+    return calculateFirstOccurrence(recurrence, todayIso)
+  }
+
+  return [
+    {
+      id: 1,
+      title: 'Outline launch checklist',
+      due: { date: withFirstOccurrence({ type: 'None', interval: null, unit: 'day', daysOfWeek: [] }), time: '11:00' },
+      tags: ['Launch', 'Planning'],
+      priority: 'High',
+      completed: false,
+      timeAllocated: 90,
+      objective: '5 items',
+      goalId: null,
+      recurrence: { type: 'None', interval: null, unit: 'day', daysOfWeek: [] },
+      inToday: true,
+    },
+    {
+      id: 2,
+      title: 'Reply to customer threads',
+      recurrence: { type: 'Daily', interval: null, unit: 'day', daysOfWeek: [] },
+      due: { date: withFirstOccurrence({ type: 'Daily', interval: null, unit: 'day', daysOfWeek: [] }), time: '13:00' },
+      tags: ['CX', 'Communication'],
+      priority: 'Medium',
+      completed: false,
+      timeAllocated: 45,
+      objective: '8 emails',
+      goalId: null,
+      inToday: true,
+    },
+    {
+      id: 3,
+      title: 'Team standup',
+      recurrence: { type: 'Weekly', interval: null, unit: 'week', daysOfWeek: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'] },
+      due: { date: withFirstOccurrence({ type: 'Weekly', interval: null, unit: 'week', daysOfWeek: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'] }), time: '09:00' },
+      tags: ['Meetings'],
+      priority: 'High',
+      completed: false,
+      timeAllocated: 15,
+      objective: null,
+      goalId: null,
+      inToday: true,
+    },
+    {
+      id: 4,
+      title: 'Review pull requests',
+      recurrence: { type: 'Custom', interval: 2, unit: 'day', daysOfWeek: [] },
+      due: { date: withFirstOccurrence({ type: 'Custom', interval: 2, unit: 'day', daysOfWeek: [] }), time: '15:30' },
+      tags: ['Development', 'Code Review'],
+      priority: 'Medium',
+      completed: false,
+      timeAllocated: 60,
+      objective: '3 PRs',
+      goalId: null,
+      inToday: true,
+    },
+    {
+      id: 5,
+      title: 'Weekly planning session',
+      recurrence: { type: 'Weekly', interval: null, unit: 'week', daysOfWeek: ['Mon'] },
+      due: { date: withFirstOccurrence({ type: 'Weekly', interval: null, unit: 'week', daysOfWeek: ['Mon'] }), time: '10:00' },
+      tags: ['Planning', 'Personal'],
+      priority: 'Low',
+      completed: false,
+      timeAllocated: 30,
+      objective: null,
+      goalId: null,
+      inToday: false,
+    },
+  ]
+}
 
 const emptyDraft = () => ({
   title: '',
@@ -181,7 +191,7 @@ const deriveInitialTasks = () => {
       } catch {}
     }
   }
-  return seedTasks.map(normalizeTask)
+  return buildSeedTasks().map(normalizeTask)
 }
 
 const deriveInitialTags = (tasks) => {
@@ -358,6 +368,10 @@ export default function Today({ tags = [], goals = [], setGoals = () => {}, onAd
 
   useEffect(() => {
     localStorage.setItem('smartplan.tasks', JSON.stringify(tasks))
+    // Update insights based on current tasks
+    const currentInsights = loadInsights()
+    const updatedInsights = updateInsightsFromTasks(tasks, currentInsights)
+    saveInsights(updatedInsights)
   }, [tasks])
 
   useEffect(() => {
@@ -659,14 +673,14 @@ export default function Today({ tags = [], goals = [], setGoals = () => {}, onAd
 
   const deleteTask = (id) => {
     const task = tasks.find((t) => t.id === id)
-    
-    if (task && isRecurringTask(task)) {
-      const confirmMessage = `Delete "${task.title}"? This will remove all future occurrences of this recurring task.`
-      if (!window.confirm(confirmMessage)) {
-        return
-      }
-    }
-    
+    if (!task) return
+
+    const confirmMessage = isRecurringTask(task)
+      ? `Delete "${task.title}"? This will remove all future occurrences of this recurring task.`
+      : `Delete "${task.title}"?`
+
+    if (!window.confirm(confirmMessage)) return
+
     setTasks((prev) => prev.filter((t) => t.id !== id))
     if (editingId === id) {
       cancelEdit()
@@ -944,6 +958,7 @@ export default function Today({ tags = [], goals = [], setGoals = () => {}, onAd
               return (
                 <TodoItem
                   key={task.id}
+                  id={`task-${task.id}`}
                   item={task}
                   isEditing={isEditing}
                   onToggleCompletion={toggleTask}

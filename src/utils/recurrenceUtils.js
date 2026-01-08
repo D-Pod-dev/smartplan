@@ -87,35 +87,43 @@ export const calculateFirstOccurrence = (recurrence, baseDueDate = null) => {
   today.setHours(0, 0, 0, 0)
   const todayStr = formatDate(today)
 
-  // If a base due date is provided and it's today or in the future, use it
-  if (baseDueDate && baseDueDate >= todayStr) {
-    return baseDueDate
+  const toDate = (iso) => {
+    if (!iso) return null
+    const parsed = new Date(`${iso}T00:00:00`)
+    return Number.isNaN(parsed.getTime()) ? null : parsed
   }
 
-  // For non-weekly recurrences, use today or the base date
-  if (recurrence.type !== 'Weekly' && recurrence.type !== 'Custom') {
-    return baseDueDate || todayStr
+  const clampToToday = (dateObj) => {
+    if (!dateObj) return today
+    if (dateObj < today) return today
+    return dateObj
   }
 
-  // For weekly/custom-weekly with specific days
-  if ((recurrence.type === 'Weekly' || (recurrence.type === 'Custom' && recurrence.unit === 'week')) 
-      && recurrence.daysOfWeek && recurrence.daysOfWeek.length > 0) {
-    
-    // Check if today matches one of the selected days
+  const baseDateObj = toDate(baseDueDate)
+
+  const isWeeklyWithDays = (recurrence.type === 'Weekly' || (recurrence.type === 'Custom' && recurrence.unit === 'week'))
+    && Array.isArray(recurrence.daysOfWeek)
+    && recurrence.daysOfWeek.length > 0
+
+  if (isWeeklyWithDays) {
+    const startDate = clampToToday(baseDateObj)
     const dayMap = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
-    const todayName = dayMap[today.getDay()]
-    
-    if (recurrence.daysOfWeek.includes(todayName)) {
-      return todayStr
+    const startDayName = dayMap[startDate.getDay()]
+
+    if (recurrence.daysOfWeek.includes(startDayName)) {
+      return formatDate(startDate)
     }
-    
-    // Otherwise, find the next matching day
-    const nextDate = findNextWeeklyOccurrence(today, recurrence.daysOfWeek)
+
+    const nextDate = findNextWeeklyOccurrence(startDate, recurrence.daysOfWeek)
     return formatDate(nextDate)
   }
 
-  // Default to today
-  return baseDueDate || todayStr
+  // For other recurrence types, start from today unless a valid future base date is provided
+  if (baseDateObj && baseDateObj >= today) {
+    return formatDate(baseDateObj)
+  }
+
+  return todayStr
 }
 
 /**

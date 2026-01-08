@@ -1,5 +1,9 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
+import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
 import '../App.css'
+import { getCurrentDate } from '../utils/dateUtils'
+import { calculateFirstOccurrence } from '../utils/recurrenceUtils'
 
 const deriveFocusSettings = () => {
   if (typeof localStorage !== 'undefined') {
@@ -22,6 +26,7 @@ export default function Settings({ devPanelEnabled, onToggleDevPanel, devPanelIn
   const [localDevEnabled, setLocalDevEnabled] = useState(devPanelEnabled)
   const [localDevInNav, setLocalDevInNav] = useState(devPanelInNav)
   const [localDevInSidebar, setLocalDevInSidebar] = useState(devPanelInSidebar)
+  const [markdownPreviewOpen, setMarkdownPreviewOpen] = useState(false)
   
   const [focusSettings, setFocusSettings] = useState(() => deriveFocusSettings())
   const getStoredTaskCount = () => {
@@ -36,73 +41,85 @@ export default function Settings({ devPanelEnabled, onToggleDevPanel, devPanelIn
     }
   }
   const [taskCount, setTaskCount] = useState(() => getStoredTaskCount())
-  const seedTasks = [
-    {
-      id: 1,
-      title: 'Outline launch checklist',
-      due: { date: '2026-01-03', time: '11:00' },
-      tags: ['Launch', 'Planning'],
-      priority: 'High',
-      completed: false,
-      timeAllocated: 90,
-      objective: '5 items',
-      goalId: null,
-      recurrence: { type: 'None', interval: null, unit: 'day', daysOfWeek: [] },
-      inToday: true,
-    },
-    {
-      id: 2,
-      title: 'Reply to customer threads',
-      due: { date: '2026-01-02', time: '13:00' },
-      tags: ['CX', 'Communication'],
-      priority: 'Medium',
-      completed: false,
-      timeAllocated: 45,
-      objective: '8 emails',
-      goalId: null,
-      recurrence: { type: 'Daily', interval: null, unit: 'day', daysOfWeek: [] },
-      inToday: true,
-    },
-    {
-      id: 3,
-      title: 'Team standup',
-      due: { date: '2026-01-02', time: '09:00' },
-      tags: ['Meetings'],
-      priority: 'High',
-      completed: false,
-      timeAllocated: 15,
-      objective: null,
-      goalId: null,
-      recurrence: { type: 'Weekly', interval: null, unit: 'week', daysOfWeek: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'] },
-      inToday: true,
-    },
-    {
-      id: 4,
-      title: 'Review pull requests',
-      due: { date: '2026-01-02', time: '15:30' },
-      tags: ['Development', 'Code Review'],
-      priority: 'Medium',
-      completed: false,
-      timeAllocated: 60,
-      objective: '3 PRs',
-      goalId: null,
-      recurrence: { type: 'Custom', interval: 2, unit: 'day', daysOfWeek: [] },
-      inToday: true,
-    },
-    {
-      id: 5,
-      title: 'Weekly planning session',
-      due: { date: '2026-01-06', time: '10:00' },
-      tags: ['Planning', 'Personal'],
-      priority: 'Low',
-      completed: false,
-      timeAllocated: 30,
-      objective: null,
-      goalId: null,
-      recurrence: { type: 'Weekly', interval: null, unit: 'week', daysOfWeek: ['Mon'] },
-      inToday: false,
-    },
-  ]
+  const [dataFlash, setDataFlash] = useState(null)
+  const dataFlashTimer = useRef(null)
+
+  const buildSeedTasks = () => {
+    const todayIso = getCurrentDate().toISOString().split('T')[0]
+
+    const withFirstOccurrence = (recurrence) => {
+      if (!recurrence || recurrence.type === 'None') return todayIso
+      return calculateFirstOccurrence(recurrence, todayIso)
+    }
+
+    return [
+      {
+        id: 1,
+        title: 'Outline launch checklist',
+        recurrence: { type: 'None', interval: null, unit: 'day', daysOfWeek: [] },
+        due: { date: withFirstOccurrence({ type: 'None', interval: null, unit: 'day', daysOfWeek: [] }), time: '11:00' },
+        tags: ['Launch', 'Planning'],
+        priority: 'High',
+        completed: false,
+        timeAllocated: 90,
+        objective: '5 items',
+        goalId: null,
+        inToday: true,
+      },
+      {
+        id: 2,
+        title: 'Reply to customer threads',
+        recurrence: { type: 'Daily', interval: null, unit: 'day', daysOfWeek: [] },
+        due: { date: withFirstOccurrence({ type: 'Daily', interval: null, unit: 'day', daysOfWeek: [] }), time: '13:00' },
+        tags: ['CX', 'Communication'],
+        priority: 'Medium',
+        completed: false,
+        timeAllocated: 45,
+        objective: '8 emails',
+        goalId: null,
+        inToday: true,
+      },
+      {
+        id: 3,
+        title: 'Team standup',
+        recurrence: { type: 'Weekly', interval: null, unit: 'week', daysOfWeek: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'] },
+        due: { date: withFirstOccurrence({ type: 'Weekly', interval: null, unit: 'week', daysOfWeek: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'] }), time: '09:00' },
+        tags: ['Meetings'],
+        priority: 'High',
+        completed: false,
+        timeAllocated: 15,
+        objective: null,
+        goalId: null,
+        inToday: true,
+      },
+      {
+        id: 4,
+        title: 'Review pull requests',
+        recurrence: { type: 'Custom', interval: 2, unit: 'day', daysOfWeek: [] },
+        due: { date: withFirstOccurrence({ type: 'Custom', interval: 2, unit: 'day', daysOfWeek: [] }), time: '15:30' },
+        tags: ['Development', 'Code Review'],
+        priority: 'Medium',
+        completed: false,
+        timeAllocated: 60,
+        objective: '3 PRs',
+        goalId: null,
+        inToday: true,
+      },
+      {
+        id: 5,
+        title: 'Weekly planning session',
+        recurrence: { type: 'Weekly', interval: null, unit: 'week', daysOfWeek: ['Mon'] },
+        due: { date: withFirstOccurrence({ type: 'Weekly', interval: null, unit: 'week', daysOfWeek: ['Mon'] }), time: '10:00' },
+        tags: ['Planning', 'Personal'],
+        priority: 'Low',
+        completed: false,
+        timeAllocated: 30,
+        objective: null,
+        goalId: null,
+        inToday: false,
+      },
+    ]
+  }
 
   useEffect(() => {
     setLocalDevEnabled(devPanelEnabled)
@@ -160,10 +177,31 @@ export default function Settings({ devPanelEnabled, onToggleDevPanel, devPanelIn
   }
 
   const loadSeedTasks = () => {
-    localStorage.setItem('smartplan.tasks', JSON.stringify(seedTasks))
-    localStorage.setItem('smartplan.tags', JSON.stringify(Array.from(new Set(seedTasks.flatMap((t) => t.tags || [])))))
-    setTaskCount(seedTasks.length)
-    alert('Seed tasks loaded. Refresh the Tasks/Today pages to see them.')
+    const seeds = buildSeedTasks()
+    let existing = []
+    try {
+      const saved = localStorage.getItem('smartplan.tasks')
+      if (saved) {
+        const parsed = JSON.parse(saved)
+        if (Array.isArray(parsed)) existing = parsed
+      }
+    } catch {}
+
+    const seedsById = new Map(seeds.map((s) => [s.id, s]))
+    const existingIds = new Set(existing.map((t) => t.id))
+
+    const merged = existing.map((task) => (seedsById.has(task.id) ? seedsById.get(task.id) : task))
+    seeds.forEach((seed) => {
+      if (!existingIds.has(seed.id)) {
+        merged.push(seed)
+      }
+    })
+
+    localStorage.setItem('smartplan.tasks', JSON.stringify(merged))
+    const mergedTags = Array.from(new Set(merged.flatMap((t) => t.tags || []).filter(Boolean)))
+    localStorage.setItem('smartplan.tags', JSON.stringify(mergedTags))
+    setTaskCount(merged.length)
+    triggerDataFlash('load')
   }
 
   const clearAllTasks = () => {
@@ -171,11 +209,27 @@ export default function Settings({ devPanelEnabled, onToggleDevPanel, devPanelIn
     if (!confirmed) return
     localStorage.setItem('smartplan.tasks', JSON.stringify([]))
     setTaskCount(0)
-    alert('All tasks cleared. Refresh the Tasks/Today pages to see the change.')
+    triggerDataFlash('clear')
+  }
+
+  const triggerDataFlash = (type) => {
+    if (dataFlashTimer.current) {
+      clearTimeout(dataFlashTimer.current)
+    }
+    setDataFlash(type)
+    dataFlashTimer.current = setTimeout(() => {
+      setDataFlash(null)
+    }, 3000)
   }
 
   useEffect(() => {
     setTaskCount(getStoredTaskCount())
+  }, [])
+
+  useEffect(() => () => {
+    if (dataFlashTimer.current) {
+      clearTimeout(dataFlashTimer.current)
+    }
   }, [])
 
   return (
@@ -247,13 +301,26 @@ export default function Settings({ devPanelEnabled, onToggleDevPanel, devPanelIn
           <p className="panel__copy" style={{ marginTop: '0.4rem', fontSize: '0.95rem', opacity: 0.85 }}>
             Current tasks stored: {taskCount}
           </p>
-          <div style={{ display: 'flex', gap: '0.6rem', flexWrap: 'wrap', marginTop: '1rem' }}>
+          <div style={{ display: 'flex', gap: '0.6rem', flexWrap: 'wrap', marginTop: '1rem', alignItems: 'center' }}>
             <button className="action ghost" type="button" onClick={loadSeedTasks}>
               Load seed tasks
             </button>
             <button className="action" type="button" onClick={clearAllTasks} style={{ borderColor: 'rgba(255, 255, 255, 0.18)' }}>
               Clear all tasks
             </button>
+            <span
+              className={[
+                'data-flash',
+                dataFlash ? 'is-visible' : '',
+                dataFlash === 'load' ? 'data-flash--success' : '',
+                dataFlash === 'clear' ? 'data-flash--neutral' : '',
+              ].filter(Boolean).join(' ')}
+              aria-live="polite"
+              aria-label={dataFlash === 'load' ? 'Seed tasks loaded' : dataFlash === 'clear' ? 'All tasks cleared' : ''}
+            >
+              {dataFlash === 'load' && '✓'}
+              {dataFlash === 'clear' && '⨂'}
+            </span>
           </div>
           <p className="panel__copy" style={{ marginTop: '0.8rem', fontSize: '0.9rem', opacity: 0.75 }}>
             Loading seeds overwrites your current tasks. Clearing tasks requires confirmation.
@@ -313,7 +380,80 @@ export default function Settings({ devPanelEnabled, onToggleDevPanel, devPanelIn
             </>
           )}
         </div>
+        <div className="panel">
+          <div className="panel__title">Chat Markdown Coloring</div>
+          <p className="panel__copy">Preview how Markdown is styled in chat messages.</p>
+          
+          <button 
+            className="action"
+            onClick={() => setMarkdownPreviewOpen(true)}
+            type="button"
+          >
+            View Markdown Guide
+          </button>
+        </div>
       </section>
+
+      {markdownPreviewOpen && (
+        <div className="modal-overlay" onClick={() => setMarkdownPreviewOpen(false)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2 className="modal-title">Complete Markdown Guide</h2>
+              <button 
+                className="modal-close"
+                onClick={() => setMarkdownPreviewOpen(false)}
+                type="button"
+                aria-label="Close"
+              >
+                ×
+              </button>
+            </div>
+            <div className="modal-body">
+              <div className="markdown-preview">
+                <div className="markdown-preview__box">
+                  <ReactMarkdown remarkPlugins={[remarkGfm]}>{`# Complete Markdown Guide
+
+## Text Formatting
+**Bold text** appears in gold, *italic text* in purple, and you can combine ***bold and italic***.
+
+## Links & Code
+[Links appear in blue](https://example.com) and \`inline code\` is green on dark background.
+
+## Code Blocks
+\`\`\`
+const greeting = "Code blocks have a dark background"
+const withBorder = "and blue left border for accent"
+\`\`\`
+
+## Lists
+- Unordered lists work great
+- You can have multiple items
+  - And even nested items
+
+1. Ordered lists too
+2. With numbers
+3. Automatically counted
+
+## Blockquotes & Horizontal Rules
+> Blockquotes appear indented with an accent border on the left
+
+---
+
+## Tables
+| Feature | Color | Example |
+|---------|-------|---------|
+| Bold | Gold | **text** |
+| Italic | Purple | *text* |
+| Links | Blue | [link](url) |
+| Code | Green | \`code\` |
+
+*Last updated - see how everything works together!*`}</ReactMarkdown>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   )
 }

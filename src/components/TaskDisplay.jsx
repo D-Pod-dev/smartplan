@@ -1,4 +1,5 @@
 import '../App.css'
+import { getCurrentDate } from '../utils/dateUtils'
 
 const normalizeRecurrence = (recurrence) => {
   const defaultRecurrence = { type: 'None', interval: null, unit: 'day', daysOfWeek: [] }
@@ -44,6 +45,25 @@ const formatDue = (due) => {
   const dateLabel = due.date ? new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', year: 'numeric' }).format(new Date(`${due.date}T00:00:00`)) : ''
   const timeLabel = formatTimeForDisplay(due.time)
   return [dateLabel, timeLabel].filter(Boolean).join(' · ')
+}
+
+const getDateOnly = (dateString) => {
+  if (!dateString) return null
+  const parsed = new Date(`${dateString}T00:00:00`)
+  if (Number.isNaN(parsed.getTime())) return null
+  return new Date(parsed.getFullYear(), parsed.getMonth(), parsed.getDate())
+}
+
+const getDueStatus = (due) => {
+  const dueDate = getDateOnly(due?.date)
+  if (!dueDate) return null
+
+  const now = getCurrentDate()
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+
+  if (dueDate.getTime() === today.getTime()) return 'today'
+  if (dueDate < today) return 'overdue'
+  return null
 }
 
 const formatRecurrence = (recurrence) => {
@@ -105,6 +125,9 @@ const renderTags = (taskTags) => {
 }
 
 export default function TaskDisplay({ task }) {
+  const hasDueDate = Boolean(task?.due?.date || task?.due?.time)
+  const dueStatus = getDueStatus(task.due)
+
   return (
     <div className="todo-display">
       <div className={`list__title todo-title ${task.completed ? 'is-completed' : ''}`}>
@@ -113,7 +136,16 @@ export default function TaskDisplay({ task }) {
         {(task.timeAllocated && task.timeAllocated > 0) && <span className="pill pill--filled" style={{ marginLeft: '0.5rem' }}>{task.timeAllocated} min</span>}
       </div>
       <div className="list__meta todo-meta">
-        <span className={`pill ${task.due ? 'pill--filled' : 'pill--empty'}`}>{formatDue(task.due) || 'No due date'}</span>
+        <span
+          className={[
+            'pill',
+            hasDueDate ? 'pill--filled' : 'pill--empty',
+            dueStatus === 'today' ? 'pill--today' : '',
+            dueStatus === 'overdue' ? 'pill--overdue' : '',
+          ].filter(Boolean).join(' ')}
+        >
+          {formatDue(task.due) || 'No due date'}
+        </span>
         <span
           className={`pill ${task.priority === 'None' ? 'pill--empty' : 'pill--filled'}`}
           style={task.priority && task.priority !== 'None' ? priorityStyles[task.priority] : undefined}

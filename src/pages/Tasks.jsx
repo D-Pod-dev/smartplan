@@ -7,35 +7,39 @@ import TagManager from '../components/TagManager'
 import TaskDisplay from '../components/TaskDisplay'
 import TodoItem from '../components/TodoItem'
 import { getCurrentDate } from '../utils/dateUtils'
+import { isRecurringTask } from '../utils/recurrenceUtils'
 
-const seedTasks = [
-  {
-    id: 1,
-    title: 'Outline launch checklist',
-    due: { date: '2025-12-29', time: '11:00' },
-    tags: ['Launch'],
-    priority: 'High',
-    completed: false,
-    timeAllocated: 90,
-    objective: null,
-    goalId: null,
-    recurrence: { type: 'None', interval: null, unit: 'day', daysOfWeek: [] },
-    inToday: false,
-  },
-  {
-    id: 2,
-    title: 'Reply to customer threads',
-    due: { date: '2025-12-29', time: '13:00' },
-    tags: ['CX'],
-    priority: 'Medium',
-    completed: false,
-    timeAllocated: 45,
-    objective: null,
-    goalId: null,
-    recurrence: { type: 'None', interval: null, unit: 'day', daysOfWeek: [] },
-    inToday: false,
-  },
-]
+const buildSeedTasks = () => {
+  const todayIso = getCurrentDate().toISOString().split('T')[0]
+  return [
+    {
+      id: 1,
+      title: 'Outline launch checklist',
+      due: { date: todayIso, time: '11:00' },
+      tags: ['Launch'],
+      priority: 'High',
+      completed: false,
+      timeAllocated: 90,
+      objective: null,
+      goalId: null,
+      recurrence: { type: 'None', interval: null, unit: 'day', daysOfWeek: [] },
+      inToday: false,
+    },
+    {
+      id: 2,
+      title: 'Reply to customer threads',
+      due: { date: todayIso, time: '13:00' },
+      tags: ['CX'],
+      priority: 'Medium',
+      completed: false,
+      timeAllocated: 45,
+      objective: null,
+      goalId: null,
+      recurrence: { type: 'None', interval: null, unit: 'day', daysOfWeek: [] },
+      inToday: false,
+    },
+  ]
+}
 
 const emptyDraft = () => ({
   title: '',
@@ -140,7 +144,7 @@ const deriveInitialTasks = () => {
       } catch {}
     }
   }
-  return seedTasks.map(normalizeTask)
+  return buildSeedTasks().map(normalizeTask)
 }
 
 const deriveInitialTags = (tasks) => {
@@ -560,6 +564,15 @@ export default function Tasks({ tags = [], goals = [], setGoals = () => {}, onAd
   }
 
   const deleteTask = (id) => {
+    const task = tasks.find((t) => t.id === id)
+    if (!task) return
+
+    const confirmMessage = isRecurringTask(task)
+      ? `Delete "${task.title}"? This will remove all future occurrences of this recurring task.`
+      : `Delete "${task.title}"?`
+
+    if (!window.confirm(confirmMessage)) return
+
     setTasks((prev) => prev.filter((t) => t.id !== id))
     if (editingId === id) {
       cancelEdit()
@@ -803,6 +816,7 @@ export default function Tasks({ tags = [], goals = [], setGoals = () => {}, onAd
               return (
                 <TodoItem
                   key={task.id}
+                  id={`task-${task.id}`}
                   item={task}
                   isEditing={isEditing}
                   onToggleCompletion={toggleTask}
