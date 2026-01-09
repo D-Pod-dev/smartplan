@@ -8,6 +8,7 @@ import TaskDisplay from '../components/TaskDisplay'
 import TodoItem from '../components/TodoItem'
 import { getCurrentDate } from '../utils/dateUtils'
 import { isRecurringTask } from '../utils/recurrenceUtils'
+import { useSupabaseTaskSync } from '../hooks/useSupabaseTaskSync'
 
 const buildSeedTasks = () => {
   const todayIso = getCurrentDate().toISOString().split('T')[0]
@@ -180,6 +181,12 @@ export default function Tasks({ tags = [], goals = [], setGoals = () => {}, onAd
   const editingSettingsRef = useRef(null)
   const [currentDateKey, setCurrentDateKey] = useState(() => getCurrentDate().toISOString().split('T')[0])
   const [goalTaskRefreshTrigger, setGoalTaskRefreshTrigger] = useState(0)
+  useSupabaseTaskSync({
+    tasks,
+    setTasks,
+    normalizeTask,
+    storageKey: 'smartplan.tasks',
+  })
 
   const sortTasksForDisplay = (list, option, direction = 'asc') => {
     const priorityRank = { High: 0, Medium: 1, Low: 2, None: 3 }
@@ -295,7 +302,7 @@ export default function Tasks({ tags = [], goals = [], setGoals = () => {}, onAd
           }
           
           const newTask = {
-            id: Date.now() + Math.random(),
+            id: Date.now(),
             title: `Work on '${goal.title}'`,
             due: { date: todayStr, time: '' },
             priority: goal.priority === 'none' ? 'None' : goal.priority.charAt(0).toUpperCase() + goal.priority.slice(1),
@@ -320,10 +327,6 @@ export default function Tasks({ tags = [], goals = [], setGoals = () => {}, onAd
       prevTasks.filter(task => !task.goalId || goalIds.has(task.goalId))
     )
   }, [goals])
-
-  useEffect(() => {
-    localStorage.setItem('smartplan.tasks', JSON.stringify(tasks))
-  }, [tasks])
 
   useEffect(() => {
     const tagsFromTasks = tasks.flatMap((t) => t.tags || [])

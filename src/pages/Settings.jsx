@@ -4,6 +4,7 @@ import remarkGfm from 'remark-gfm'
 import '../App.css'
 import { getCurrentDate } from '../utils/dateUtils'
 import { calculateFirstOccurrence } from '../utils/recurrenceUtils'
+import { useSupabase } from '../contexts/SupabaseProvider'
 
 const deriveFocusSettings = () => {
   if (typeof localStorage !== 'undefined') {
@@ -27,6 +28,11 @@ export default function Settings({ devPanelEnabled, onToggleDevPanel, devPanelIn
   const [localDevInNav, setLocalDevInNav] = useState(devPanelInNav)
   const [localDevInSidebar, setLocalDevInSidebar] = useState(devPanelInSidebar)
   const [markdownPreviewOpen, setMarkdownPreviewOpen] = useState(false)
+    const { user, authReady, authError, signInWithOtp, signInAnonymously, signOut, supabase } = useSupabase()
+  const [authEmail, setAuthEmail] = useState('')
+  const [authMessage, setAuthMessage] = useState('')
+  const [authBusy, setAuthBusy] = useState(false)
+    const [displayName, setDisplayName] = useState('')
   
   const [focusSettings, setFocusSettings] = useState(() => deriveFocusSettings())
   const getStoredTaskCount = () => {
@@ -132,6 +138,14 @@ export default function Settings({ devPanelEnabled, onToggleDevPanel, devPanelIn
   useEffect(() => {
     setLocalDevInSidebar(devPanelInSidebar)
   }, [devPanelInSidebar])
+
+  useEffect(() => {
+    if (user?.email) {
+      setAuthEmail(user.email)
+    }
+    const metaName = user?.user_metadata?.display_name || user?.user_metadata?.name || ''
+    setDisplayName(metaName)
+  }, [user])
   
   useEffect(() => {
     localStorage.setItem('smartplan.settings.focus', JSON.stringify(focusSettings))
@@ -176,6 +190,65 @@ export default function Settings({ devPanelEnabled, onToggleDevPanel, devPanelIn
     setFocusSettings(prev => ({ ...prev, [key]: value }))
   }
 
+  const handleSendMagicLink = async () => {
+    setAuthMessage('')
+    setAuthBusy(true)
+    try {
+      await signInWithOtp(authEmail)
+      setAuthMessage('Magic link sent. Check your email to finish signing in.')
+    } catch (err) {
+      setAuthMessage(err?.message || 'Unable to send magic link')
+    } finally {
+      setAuthBusy(false)
+    }
+  }
+
+    const handleSignInAnonymously = async () => {
+      setAuthMessage('')
+      setAuthBusy(true)
+      try {
+        await signInAnonymously()
+        setAuthMessage('Signed in anonymously. Your data will be synced but tied to this device.')
+      } catch (err) {
+        const message = err?.message || 'Unable to sign in anonymously'
+        // Add a hint when the Supabase project has anonymous auth turned off
+        const hint = message.toLowerCase().includes('disabled')
+          ? 'Enable anonymous sign-ins in Supabase Dashboard → Authentication → Providers → Anonymous.'
+          : ''
+        setAuthMessage([message, hint].filter(Boolean).join(' '))
+      } finally {
+        setAuthBusy(false)
+      }
+    }
+
+  const handleSignOut = async () => {
+    setAuthMessage('')
+    setAuthBusy(true)
+    try {
+      await signOut()
+      setAuthMessage('Signed out')
+    } catch (err) {
+      setAuthMessage(err?.message || 'Unable to sign out')
+    } finally {
+      setAuthBusy(false)
+    }
+  }
+
+  const handleSaveDisplayName = async () => {
+    const trimmed = displayName.trim()
+    if (!user || !supabase) return
+    setAuthMessage('')
+    setAuthBusy(true)
+    try {
+      await supabase.auth.updateUser({ data: { display_name: trimmed || null } })
+      setAuthMessage(trimmed ? 'Display name updated' : 'Display name cleared')
+    } catch (err) {
+      setAuthMessage(err?.message || 'Unable to update display name')
+    } finally {
+      setAuthBusy(false)
+    }
+  }
+
   const loadSeedTasks = () => {
     const seeds = buildSeedTasks()
     let existing = []
@@ -204,12 +277,22 @@ export default function Settings({ devPanelEnabled, onToggleDevPanel, devPanelIn
     triggerDataFlash('load')
   }
 
-  const clearAllTasks = () => {
+  const clearAllTasks = async () => {
     const confirmed = window.confirm('Delete all tasks? This cannot be undone.')
     if (!confirmed) return
     localStorage.setItem('smartplan.tasks', JSON.stringify([]))
     setTaskCount(0)
     triggerDataFlash('clear')
+    
+    // Also clear from Supabase if logged in
+    if (user && supabase) {
+      try {
+        await supabase.from('tasks').delete().eq('user_id', user.id)
+        console.log('[Settings] Cleared tasks from Supabase')
+      } catch (err) {
+        console.error('[Settings] Failed to clear Supabase tasks:', err)
+      }
+    }
   }
 
   const triggerDataFlash = (type) => {
@@ -241,6 +324,93 @@ export default function Settings({ devPanelEnabled, onToggleDevPanel, devPanelIn
       </header>
 
       <section className="panels">
+        <div className="panel">
+          <div className="panel__title">Account</div>
+          <p className="panel__copy">Log in with a Supabase magic link to sync tasks across devices.</p>
+
+          <div className="todo-field" style={{ marginBottom: '0.75rem' }}>
+            <label>Email</label>
+            <input
+              type="email"
+              className="todo-edit-input"
+              value={authEmail}
+              onChange={(e) => setAuthEmail(e.target.value)}
+              placeholder="you@example.com"
+              disabled={authBusy}
+            />
+          </div>
+
+          <div className="setting-row" style={{ gap: '1.4rem', flexWrap: 'wrap', alignItems: 'center' }}>
+            {!user && (
+              <button
+                type="button"
+                className="action"
+                onClick={handleSendMagicLink}
+                disabled={!authReady || authBusy || !authEmail}
+              >
+                {authBusy ? 'Sending…' : 'Send magic link'}
+              </button>
+            )}
+
+              {!user && (
+                <button
+                  type="button"
+                  className="action ghost"
+                  onClick={handleSignInAnonymously}
+                  disabled={!authReady || authBusy}
+                >
+                  {authBusy ? 'Signing in…' : 'Sign in anonymously'}
+                </button>
+              )}
+
+            {user && (
+              <button
+                type="button"
+                className="action ghost"
+                onClick={handleSignOut}
+                disabled={authBusy}
+              >
+                Sign out
+              </button>
+            )}
+
+            <span className="eyebrow" style={{ minWidth: '200px' }}>
+                {user ? (user.email ? `Signed in as ${user.email}` : 'Signed in anonymously') : authReady ? 'Not signed in' : 'Connecting…'}
+            </span>
+          </div>
+
+          {user && (
+            <div className="todo-field" style={{ marginTop: '0.75rem', maxWidth: '360px' }}>
+              <label>Display name</label>
+              <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                <input
+                  type="text"
+                  className="todo-edit-input"
+                  value={displayName}
+                  onChange={(e) => setDisplayName(e.target.value)}
+                  placeholder="How should we show your name?"
+                  disabled={authBusy}
+                  style={{ flex: '1 1 200px', minWidth: '160px' }}
+                />
+                <button
+                  type="button"
+                  className="action ghost"
+                  onClick={handleSaveDisplayName}
+                  disabled={authBusy}
+                >
+                  {authBusy ? 'Saving…' : 'Save name'}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {(authMessage || authError) && (
+            <p className="lede" style={{ marginTop: '0.5rem', color: authError ? '#c0392b' : 'var(--muted)', fontSize: '0.95rem' }}>
+              {authError ? authError.message : authMessage}
+            </p>
+          )}
+        </div>
+
         <div className="panel">
           <div className="panel__title">General</div>
           <p className="panel__copy">Theme, notifications, and default durations.</p>

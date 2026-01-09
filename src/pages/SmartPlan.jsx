@@ -14,6 +14,7 @@ import ConversationManager, {
   renameConversation,
 } from '../components/ConversationManager'
 import { loadInsights, saveInsights, incrementAiAssistedTasks, incrementTotalTasksCreated } from '../utils/insightTracker'
+import { useSupabaseTaskSync } from '../hooks/useSupabaseTaskSync'
 
 const TODO_STORAGE_KEY = 'smartplan.tasks'
 
@@ -60,6 +61,12 @@ export default function SmartPlan() {
   const [actionHistory, setActionHistory] = useState([]) // For undo functionality
   const [showRawForMessage, setShowRawForMessage] = useState({}) // messageId -> boolean
   const chatRef = useRef(null)
+  useSupabaseTaskSync({
+    tasks: todos,
+    setTasks: setTodos,
+    normalizeTask: normalizeTodo,
+    storageKey: 'smartplan.tasks',
+  })
 
   const currentConversation = conversations.find((c) => c.id === currentConversationId)
   const chatThread = currentConversation?.messages || []
@@ -75,11 +82,6 @@ export default function SmartPlan() {
     if (typeof localStorage === 'undefined') return
     persistCurrentConversationId(currentConversationId)
   }, [currentConversationId])
-
-  useEffect(() => {
-    if (typeof localStorage === 'undefined') return
-    localStorage.setItem(TODO_STORAGE_KEY, JSON.stringify(todos))
-  }, [todos])
 
   useEffect(() => {
     if (!chatRef.current) return
@@ -775,14 +777,13 @@ export default function SmartPlan() {
           </div>
           {error && <div className="pill pill--filled">{error}</div>}
           <div className="chat__composer">
-            <input
+            <textarea
               className="chat__input"
-              type="text"
               placeholder="Tell SmartPlan what to handle"
               value={message}
               onChange={(e) => setMessage(e.target.value)}
               onKeyDown={(e) => {
-                if (e.key === 'Enter') {
+                if (e.key === 'Enter' && !e.shiftKey) {
                   e.preventDefault()
                   handleSend(message)
                 }

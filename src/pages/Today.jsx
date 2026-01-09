@@ -9,6 +9,7 @@ import TodoItem from '../components/TodoItem'
 import { getCurrentDate } from '../utils/dateUtils'
 import { calculateFirstOccurrence, calculateNextOccurrence, isRecurringTask } from '../utils/recurrenceUtils'
 import { loadInsights, saveInsights, updateInsightsFromTasks } from '../utils/insightTracker'
+import { useSupabaseTaskSync } from '../hooks/useSupabaseTaskSync'
 
 const buildSeedTasks = () => {
   const todayIso = getCurrentDate().toISOString().split('T')[0]
@@ -227,6 +228,12 @@ export default function Today({ tags = [], goals = [], setGoals = () => {}, onAd
   const editingSettingsRef = useRef(null)
   const [currentDateKey, setCurrentDateKey] = useState(() => getCurrentDate().toISOString().split('T')[0])
   const [goalTaskRefreshTrigger, setGoalTaskRefreshTrigger] = useState(0)
+  useSupabaseTaskSync({
+    tasks,
+    setTasks,
+    normalizeTask,
+    storageKey: 'smartplan.tasks',
+  })
 
   const sortTasksForDisplay = (list, option, direction = 'asc') => {
     const priorityRank = { High: 0, Medium: 1, Low: 2, None: 3 }
@@ -340,7 +347,7 @@ export default function Today({ tags = [], goals = [], setGoals = () => {}, onAd
           }
           
           const newTask = {
-            id: Date.now() + Math.random(),
+            id: Date.now(),
             title: `Work on '${goal.title}'`,
             due: { date: todayStr, time: '' },
             priority: goal.priority === 'none' ? 'None' : goal.priority.charAt(0).toUpperCase() + goal.priority.slice(1),
@@ -367,8 +374,6 @@ export default function Today({ tags = [], goals = [], setGoals = () => {}, onAd
   }, [goals])
 
   useEffect(() => {
-    localStorage.setItem('smartplan.tasks', JSON.stringify(tasks))
-    // Update insights based on current tasks
     const currentInsights = loadInsights()
     const updatedInsights = updateInsightsFromTasks(tasks, currentInsights)
     saveInsights(updatedInsights)
@@ -583,7 +588,7 @@ export default function Today({ tags = [], goals = [], setGoals = () => {}, onAd
       if (nextDueDate) {
         const nextTask = {
           ...task,
-          id: Date.now() + Math.random(),
+          id: Date.now(),
           completed: false,
           completedDate: null,
           due: { date: nextDueDate, time: task.due?.time || '' },
