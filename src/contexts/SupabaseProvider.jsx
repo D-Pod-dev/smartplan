@@ -9,6 +9,7 @@ const SupabaseContext = createContext({
   authError: null,
   signInWithOtp: async () => {},
   signInAnonymously: async () => {},
+  signInWithCode: async () => {},
   signOut: async () => {},
 })
 
@@ -61,11 +62,63 @@ export const SupabaseProvider = ({ children }) => {
     if (error) throw error
   }
 
-    const signInAnonymously = async () => {
-      if (!supabase) throw new Error('Supabase is not configured. Add VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY.')
-      const { error } = await supabase.auth.signInAnonymously()
-      if (error) throw error
+  const generateSignInCode = () => {
+    // Generate a 6-character alphanumeric code
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
+    let code = ''
+    for (let i = 0; i < 6; i++) {
+      code += chars.charAt(Math.floor(Math.random() * chars.length))
     }
+    return code
+  }
+
+  const signInAnonymously = async () => {
+    if (!supabase) throw new Error('Supabase is not configured. Add VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY.')
+    const { error } = await supabase.auth.signInAnonymously()
+    if (error) throw error
+    
+    // Generate and store a sign-in code in user metadata
+    const signInCode = generateSignInCode()
+    const { error: updateError } = await supabase.auth.updateUser({
+      data: { sign_in_code: signInCode }
+    })
+    if (updateError) {
+      console.warn('Could not store sign-in code:', updateError)
+    }
+  }
+
+  const signInWithCode = async (code) => {
+    if (!supabase) throw new Error('Supabase is not configured.')
+    const trimmed = String(code || '').trim().toUpperCase()
+    if (!trimmed) throw new Error('Code is required')
+    if (trimmed.length !== 6) throw new Error('Code must be 6 characters')
+    
+    try {
+      // Call the RPC function to look up the user by code
+      const { data, error: lookupError } = await supabase.rpc('lookup_user_by_sign_in_code', {
+        code: trimmed
+      })
+      
+      if (lookupError || !data) {
+        throw new Error('Invalid or expired sign-in code')
+      }
+      
+      // Create a new anonymous session
+      const { error: anonError } = await supabase.auth.signInAnonymously()
+      if (anonError) throw anonError
+      
+      // Store the target user_id in metadata
+      await supabase.auth.updateUser({ 
+        data: { 
+          linked_user_id: data,
+          sign_in_code: trimmed 
+        } 
+      })
+      
+    } catch (err) {
+      throw new Error(err?.message || 'Unable to verify sign-in code')
+    }
+  }
 
   const signOut = async () => {
     if (!supabase) return
@@ -80,7 +133,8 @@ export const SupabaseProvider = ({ children }) => {
       authReady,
       authError,
       signInWithOtp,
-        signInAnonymously,
+      signInAnonymously,
+      signInWithCode,
       signOut,
     }),
     [supabase, session, authReady, authError]

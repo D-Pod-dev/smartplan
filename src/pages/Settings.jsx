@@ -28,11 +28,15 @@ export default function Settings({ devPanelEnabled, onToggleDevPanel, devPanelIn
   const [localDevInNav, setLocalDevInNav] = useState(devPanelInNav)
   const [localDevInSidebar, setLocalDevInSidebar] = useState(devPanelInSidebar)
   const [markdownPreviewOpen, setMarkdownPreviewOpen] = useState(false)
-    const { user, authReady, authError, signInWithOtp, signInAnonymously, signOut, supabase } = useSupabase()
+  const { user, authReady, authError, signInWithOtp, signInAnonymously, signInWithCode, signOut, supabase } = useSupabase()
   const [authEmail, setAuthEmail] = useState('')
   const [authMessage, setAuthMessage] = useState('')
   const [authBusy, setAuthBusy] = useState(false)
-    const [displayName, setDisplayName] = useState('')
+  const [displayName, setDisplayName] = useState('')
+  const [originalDisplayName, setOriginalDisplayName] = useState('')
+  const [editingDisplayName, setEditingDisplayName] = useState(false)
+  const [signInCode, setSignInCode] = useState('')
+  const [showCodeInput, setShowCodeInput] = useState(false)
   
   const [focusSettings, setFocusSettings] = useState(() => deriveFocusSettings())
   const getStoredTaskCount = () => {
@@ -151,6 +155,21 @@ export default function Settings({ devPanelEnabled, onToggleDevPanel, devPanelIn
     localStorage.setItem('smartplan.settings.focus', JSON.stringify(focusSettings))
   }, [focusSettings])
 
+  const handleSignInWithCode = async () => {
+    setAuthMessage('')
+    setAuthBusy(true)
+    try {
+      await signInWithCode(signInCode)
+      setSignInCode('')
+      setShowCodeInput(false)
+      setAuthMessage('Signed in with code')
+    } catch (err) {
+      setAuthMessage(err?.message || 'Unable to sign in with code')
+    } finally {
+      setAuthBusy(false)
+    }
+  }
+
   const handleToggle = () => {
     const newValue = !localDevEnabled
     setLocalDevEnabled(newValue)
@@ -208,7 +227,7 @@ export default function Settings({ devPanelEnabled, onToggleDevPanel, devPanelIn
       setAuthBusy(true)
       try {
         await signInAnonymously()
-        setAuthMessage('Signed in anonymously. Your data will be synced but tied to this device.')
+        setAuthMessage('')
       } catch (err) {
         const message = err?.message || 'Unable to sign in anonymously'
         // Add a hint when the Supabase project has anonymous auth turned off
@@ -325,45 +344,184 @@ export default function Settings({ devPanelEnabled, onToggleDevPanel, devPanelIn
 
       <section className="panels">
         <div className="panel">
-          <div className="panel__title">Account</div>
-          <p className="panel__copy">Log in with a Supabase magic link to sync tasks across devices.</p>
-
-          <div className="todo-field" style={{ marginBottom: '0.75rem' }}>
-            <label>Email</label>
-            <input
-              type="email"
-              className="todo-edit-input"
-              value={authEmail}
-              onChange={(e) => setAuthEmail(e.target.value)}
-              placeholder="you@example.com"
-              disabled={authBusy}
-            />
-          </div>
-
-          <div className="setting-row" style={{ gap: '1.4rem', flexWrap: 'wrap', alignItems: 'center' }}>
-            {!user && (
-              <button
-                type="button"
-                className="action"
-                onClick={handleSendMagicLink}
-                disabled={!authReady || authBusy || !authEmail}
-              >
-                {authBusy ? 'Sending…' : 'Send magic link'}
-              </button>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '0.5rem' }}>
+            <div className="panel__title">Account</div>
+            {user ? (
+              <span className="eyebrow" style={{ fontSize: '0.85rem' }}>
+                {user.email ? `Signed in as ${user.email}` : 'Signed in anonymously'}
+              </span>
+            ) : (authMessage || authError) && (
+              <span className="eyebrow" style={{ color: authError ? '#c0392b' : 'var(--muted)', fontSize: '0.85rem' }}>
+                {authError ? authError.message : authMessage}
+              </span>
             )}
+          </div>
+          {!user && <p className="panel__copy">Choose a sign-in method to sync tasks across devices.</p>}
 
-              {!user && (
+          {!user ? (
+            <>
+              <div style={{ marginBottom: '1.5rem' }}>
+                <h3 style={{ fontSize: '0.95rem', fontWeight: 500, marginBottom: '0.5rem', color: 'var(--heading)' }}>Sign in with email</h3>
+                <div className="todo-field" style={{ marginBottom: '0.5rem' }}>
+                  <label>Email</label>
+                  <input
+                    type="email"
+                    className="todo-edit-input"
+                    value={authEmail}
+                    onChange={(e) => setAuthEmail(e.target.value)}
+                    placeholder="you@example.com"
+                    disabled={authBusy}
+                  />
+                </div>
+                <button
+                  type="button"
+                  className="action"
+                  onClick={handleSendMagicLink}
+                  disabled={!authReady || authBusy || !authEmail}
+                >
+                  {authBusy ? 'Sending…' : 'Send magic link'}
+                </button>
+              </div>
+
+              <div style={{ borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: '0.5rem', marginTop: '0.5rem' }}>
+                <h3 style={{ fontSize: '0.95rem', fontWeight: 500, marginBottom: '0.5rem', color: 'var(--heading)' }}>Create account with code</h3>
+                <p style={{ fontSize: '0.9rem', marginBottom: '0.75rem', opacity: 0.8 }}>Generate a unique code to access your account from any device.</p>
                 <button
                   type="button"
                   className="action ghost"
                   onClick={handleSignInAnonymously}
                   disabled={!authReady || authBusy}
                 >
-                  {authBusy ? 'Signing in…' : 'Sign in anonymously'}
+                  {authBusy ? 'Creating…' : 'Create new account'}
                 </button>
-              )}
+                
+                <button
+                  type="button"
+                  className="action ghost"
+                  onClick={() => setShowCodeInput(!showCodeInput)}
+                  disabled={!authReady}
+                  style={{ marginLeft: '0.5rem' }}
+                >
+                  {showCodeInput ? 'Hide' : 'Already have a code?'}
+                </button>
 
-            {user && (
+                {showCodeInput && (
+                  <div style={{ marginTop: '0.75rem' }}>
+                    <input
+                      type="text"
+                      className="todo-edit-input"
+                      value={signInCode}
+                      onChange={(e) => setSignInCode(e.target.value.toUpperCase())}
+                      placeholder="e.g., ABC123"
+                      disabled={authBusy}
+                      style={{ textTransform: 'uppercase', marginBottom: '0.5rem' }}
+                      maxLength="6"
+                    />
+                    <button
+                      type="button"
+                      className="action"
+                      onClick={handleSignInWithCode}
+                      disabled={authBusy || signInCode.length !== 6}
+                    >
+                      {authBusy ? 'Verifying…' : 'Verify code'}
+                    </button>
+                  </div>
+                )}
+              </div>
+            </>
+          ) : (
+            <>
+              <div style={{ marginBottom: '1.5rem' }}>
+                <h3 style={{ fontSize: '0.95rem', fontWeight: 500, marginBottom: '0.5rem', color: 'var(--heading)' }}>Your sign-in code</h3>
+                <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', marginBottom: '0.5rem' }}>
+                  <code style={{ 
+                    flex: 1, 
+                    padding: '0.5rem 0.75rem', 
+                    backgroundColor: 'rgba(255,255,255,0.08)', 
+                    borderRadius: '4px',
+                    fontFamily: 'monospace',
+                    fontSize: '1.1rem',
+                    letterSpacing: '2px',
+                    fontWeight: 'bold'
+                  }}>
+                    {user?.user_metadata?.sign_in_code || 'N/A'}
+                  </code>
+                  <button
+                    type="button"
+                    className="action ghost"
+                    onClick={() => {
+                      const code = user?.user_metadata?.sign_in_code
+                      if (code) {
+                        navigator.clipboard.writeText(code)
+                        setAuthMessage('Code copied!')
+                      }
+                    }}
+                  >
+                    Copy
+                  </button>
+                </div>
+                <p style={{ fontSize: '0.9rem', opacity: 0.7 }}>
+                  Share this code to sign in on another device.
+                </p>
+              </div>
+
+              <div style={{ marginBottom: '1.5rem' }}>
+                <h3 style={{ fontSize: '0.95rem', fontWeight: 500, marginBottom: '0.5rem', color: 'var(--heading)' }}>Display name</h3>
+                {!editingDisplayName ? (
+                  <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                    <span style={{ flex: 1, padding: '0.5rem 0.75rem', fontSize: '0.95rem' }}>
+                      {displayName || '(not set)'}
+                    </span>
+                    <button
+                      type="button"
+                      className="action ghost"
+                      onClick={() => {
+                        setOriginalDisplayName(displayName)
+                        setEditingDisplayName(true)
+                      }}
+                      disabled={authBusy}
+                    >
+                      Edit
+                    </button>
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                    <input
+                      type="text"
+                      className="todo-edit-input"
+                      value={displayName}
+                      onChange={(e) => setDisplayName(e.target.value)}
+                      placeholder="Your name"
+                      disabled={authBusy}
+                      style={{ flex: '1 1 200px', minWidth: '160px' }}
+                      autoFocus
+                    />
+                    <button
+                      type="button"
+                      className="action ghost"
+                      onClick={async () => {
+                        await handleSaveDisplayName()
+                        setEditingDisplayName(false)
+                      }}
+                      disabled={authBusy}
+                    >
+                      {authBusy ? 'Saving…' : 'Save'}
+                    </button>
+                    <button
+                      type="button"
+                      className="action ghost"
+                      onClick={() => {
+                        setDisplayName(originalDisplayName)
+                        setEditingDisplayName(false)
+                      }}
+                      disabled={authBusy}
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                )}
+              </div>
+
               <button
                 type="button"
                 className="action ghost"
@@ -372,42 +530,7 @@ export default function Settings({ devPanelEnabled, onToggleDevPanel, devPanelIn
               >
                 Sign out
               </button>
-            )}
-
-            <span className="eyebrow" style={{ minWidth: '200px' }}>
-                {user ? (user.email ? `Signed in as ${user.email}` : 'Signed in anonymously') : authReady ? 'Not signed in' : 'Connecting…'}
-            </span>
-          </div>
-
-          {user && (
-            <div className="todo-field" style={{ marginTop: '0.75rem', maxWidth: '360px' }}>
-              <label>Display name</label>
-              <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-                <input
-                  type="text"
-                  className="todo-edit-input"
-                  value={displayName}
-                  onChange={(e) => setDisplayName(e.target.value)}
-                  placeholder="How should we show your name?"
-                  disabled={authBusy}
-                  style={{ flex: '1 1 200px', minWidth: '160px' }}
-                />
-                <button
-                  type="button"
-                  className="action ghost"
-                  onClick={handleSaveDisplayName}
-                  disabled={authBusy}
-                >
-                  {authBusy ? 'Saving…' : 'Save name'}
-                </button>
-              </div>
-            </div>
-          )}
-
-          {(authMessage || authError) && (
-            <p className="lede" style={{ marginTop: '0.5rem', color: authError ? '#c0392b' : 'var(--muted)', fontSize: '0.95rem' }}>
-              {authError ? authError.message : authMessage}
-            </p>
+            </>
           )}
         </div>
 
