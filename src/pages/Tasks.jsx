@@ -293,7 +293,7 @@ export default function Tasks({ tags = [], goals = [], setGoals = () => {}, onAd
                     title: `Work on '${goal.title}'`,
                     due: { date: todayStr, time: t.due?.time || '' },
                     timeAllocated: isMinutesBased ? perDay : t.timeAllocated,
-                    target: isMinutesBased ? t.target : `${perDay} ${goal.targetUnit}`,
+                    objective: isMinutesBased ? t.objective : `${perDay} ${goal.targetUnit}`,
                     tags: tagsWithGoal,
                     priority: goal.priority === 'none' ? 'None' : goal.priority.charAt(0).toUpperCase() + goal.priority.slice(1),
                   }
@@ -309,7 +309,7 @@ export default function Tasks({ tags = [], goals = [], setGoals = () => {}, onAd
             tags: tagsWithGoal,
             completed: false,
             timeAllocated: isMinutesBased ? perDay : null,
-            target: isMinutesBased ? null : `${perDay} ${goal.targetUnit}`,
+            objective: isMinutesBased ? null : `${perDay} ${goal.targetUnit}`,
             goalId: goal.id,
             recurrence: { type: 'None', interval: null, unit: 'day', daysOfWeek: [] },
             inToday: true,
@@ -444,8 +444,8 @@ export default function Tasks({ tags = [], goals = [], setGoals = () => {}, onAd
     normalizedTags.forEach((tag) => onAddTag(tag))
     const parsedTime = composerDraft.timeAllocated === '' ? null : Number(composerDraft.timeAllocated)
     const timeAllocated = Number.isFinite(parsedTime) ? parsedTime : null
-    const parsedTarget = composerDraft.target === '' ? null : Number(composerDraft.target)
-    const target = Number.isFinite(parsedTarget) ? parsedTarget : null
+    const parsedObjective = composerDraft.objective === '' ? null : Number(composerDraft.objective)
+    const objective = Number.isFinite(parsedObjective) ? parsedObjective : null
 
     const newTask = {
       id: Date.now(),
@@ -455,7 +455,7 @@ export default function Tasks({ tags = [], goals = [], setGoals = () => {}, onAd
       tags: normalizedTags,
       completed: false,
       timeAllocated,
-      target,
+      objective,
       goalId: null,
       recurrence: buildRecurrenceFromDraft(composerDraft),
       inToday: composerDraft.inToday,
@@ -541,12 +541,12 @@ export default function Tasks({ tags = [], goals = [], setGoals = () => {}, onAd
     const normalizedTags = Array.from(new Set(editingDraft.tags.map((tag) => tag.trim()).filter(Boolean)))
     const parsedTime = editingDraft.timeAllocated === '' || editingDraft.timeAllocated === '0' ? null : Number(editingDraft.timeAllocated)
     const timeAllocated = Number.isFinite(parsedTime) && parsedTime > 0 ? parsedTime : null
-    // Keep target as string if it contains non-numeric characters, otherwise convert to number
-    const target = editingDraft.target === '' 
+    // Keep objective as string if it contains non-numeric characters, otherwise convert to number
+    const objective = editingDraft.objective === '' 
       ? null 
-      : typeof editingDraft.target === 'string' && isNaN(Number(editingDraft.target))
-        ? editingDraft.target
-        : Number(editingDraft.target)
+      : typeof editingDraft.objective === 'string' && isNaN(Number(editingDraft.objective))
+        ? editingDraft.objective
+        : Number(editingDraft.objective)
 
     setTasks((prev) => prev.map((t) => (t.id === id
       ? {
@@ -556,7 +556,7 @@ export default function Tasks({ tags = [], goals = [], setGoals = () => {}, onAd
           priority: editingDraft.priority || 'None',
           tags: normalizedTags,
           timeAllocated,
-          target,
+          objective,
           recurrence: buildRecurrenceFromDraft(editingDraft),
           inToday: editingDraft.inToday,
         }
@@ -709,15 +709,15 @@ export default function Tasks({ tags = [], goals = [], setGoals = () => {}, onAd
       style: { flex: '0 1 auto', maxWidth: '140px' },
     },
     {
-      key: 'target',
-      label: 'Target',
+      key: 'objective',
+      label: 'Objective',
       node: (
         <input
           className="todo-edit-input"
           type="text"
           placeholder="Optional"
-          value={composerDraft.target}
-          onChange={(e) => updateDraft('compose', 'target', e.target.value)}
+          value={composerDraft.objective}
+          onChange={(e) => updateDraft('compose', 'objective', e.target.value)}
         />
       ),
       style: { flex: '0 1 auto', maxWidth: '120px' },
@@ -908,13 +908,13 @@ export default function Tasks({ tags = [], goals = [], setGoals = () => {}, onAd
                         />
                       </label>
                       <label className="todo-field" style={{ flex: '0 1 auto', maxWidth: '120px' }}>
-                        <span>Target</span>
+                        <span>Objective</span>
                         <input
                           className="todo-edit-input"
                           type="text"
                           placeholder="Optional"
-                          value={editingDraft?.target || ''}
-                          onChange={(e) => updateDraft('edit', 'target', e.target.value)}
+                          value={editingDraft?.objective || ''}
+                          onChange={(e) => updateDraft('edit', 'objective', e.target.value)}
                           disabled={Boolean(task.goalId && relatedGoal && relatedGoal.targetUnit.toLowerCase() !== 'minutes' && relatedGoal.targetUnit.toLowerCase() !== 'mins')}
                           style={task.goalId && relatedGoal && relatedGoal.targetUnit.toLowerCase() !== 'minutes' && relatedGoal.targetUnit.toLowerCase() !== 'mins' ? { cursor: 'not-allowed', opacity: 0.6 } : {}}
                         />
