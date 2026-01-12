@@ -28,27 +28,33 @@ const normalizeRecurrence = (recurrence) => {
   }
 }
 
+const isIsoDate = (value) => typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value)
+
 const formatTimeForDisplay = (time) => {
   if (!time) return ''
   if (/^\d{2}:\d{2}$/.test(time)) {
     const [hours, minutes] = time.split(':').map(Number)
-    const date = new Date()
-    date.setHours(hours)
-    date.setMinutes(minutes)
-    return new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: '2-digit' }).format(date)
+    if (Number.isFinite(hours) && Number.isFinite(minutes)) {
+      const date = new Date()
+      date.setHours(hours)
+      date.setMinutes(minutes)
+      return new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: '2-digit' }).format(date)
+    }
   }
   return time
 }
 
 const formatDue = (due) => {
   if (!due?.date && !due?.time) return ''
-  const dateLabel = due.date ? new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', year: 'numeric' }).format(new Date(`${due.date}T00:00:00`)) : ''
-  const timeLabel = formatTimeForDisplay(due.time)
+  const dateLabel = isIsoDate(due?.date)
+    ? new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', year: 'numeric' }).format(new Date(`${due.date}T00:00:00`))
+    : ''
+  const timeLabel = formatTimeForDisplay(due?.time)
   return [dateLabel, timeLabel].filter(Boolean).join(' · ')
 }
 
 const getDateOnly = (dateString) => {
-  if (!dateString) return null
+  if (!isIsoDate(dateString)) return null
   const parsed = new Date(`${dateString}T00:00:00`)
   if (Number.isNaN(parsed.getTime())) return null
   return new Date(parsed.getFullYear(), parsed.getMonth(), parsed.getDate())
