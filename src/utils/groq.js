@@ -1,7 +1,6 @@
-const endpoint = import.meta.env.VITE_AZURE_OPENAI_ENDPOINT ?? import.meta.env.REACT_APP_AZURE_OPENAI_ENDPOINT
-const apiKey = import.meta.env.VITE_AZURE_OPENAI_API_KEY ?? import.meta.env.REACT_APP_AZURE_OPENAI_API_KEY
-const deployment = import.meta.env.VITE_AZURE_OPENAI_DEPLOYMENT_NAME ?? import.meta.env.REACT_APP_AZURE_OPENAI_DEPLOYMENT_NAME
-const apiVersion = '2024-10-21'
+const apiKey = import.meta.env.VITE_GROQ_API_KEY ?? import.meta.env.REACT_APP_GROQ_API_KEY
+const baseUrl = import.meta.env.VITE_GROQ_BASE_URL ?? import.meta.env.REACT_APP_GROQ_BASE_URL
+const model = import.meta.env.VITE_GROQ_MODEL ?? import.meta.env.REACT_APP_GROQ_MODEL ?? 'llama-3.3-70b-versatile'
 
 // Core instruction for how the assistant should respond and emit machine-readable actions
 export const systemPrompt = `You are SmartPlan, a focused scheduling copilot. Be concise, avoid over-explaining.
@@ -20,12 +19,6 @@ Action format (always include, even if empty):
 
 Rules:\n- Never invent task IDs; only use provided IDs for updates/deletes.\n- For new tasks, include full task object; omit impossible fields.\n- If no changes are needed, return actions: [] but still wrap in the tags.\n- Keep the natural language reply separate from the actions block.\n- Preserve user intent, respect provided dates/times, avoid over-scheduling.\n- IMPORTANT: Leave due.time as null unless the user explicitly mentions a specific time. If no time is given, set time to null.\n- IMPORTANT: If timeAllocated is not provided by the user, estimate how long the task will reasonably take in minutes based on the task description and complexity.
 `
-
-const buildUrl = () => {
-	if (!endpoint || !deployment) return ''
-	const normalized = endpoint.replace(/\/+$/, '')
-	return `${normalized}/openai/deployments/${deployment}/chat/completions?api-version=${apiVersion}`
-}
 
 export const sanitizeTodos = (todos = []) =>
 	todos.map((t) => ({
@@ -126,8 +119,8 @@ const extractActions = (content = '') => {
 }
 
 export async function sendChatMessage(messages = [], todos = []) {
-	if (!apiKey || !endpoint || !deployment) {
-		throw new Error('Azure OpenAI client is not configured. Check your environment variables.')
+	if (!apiKey || !baseUrl || !model) {
+		throw new Error('Groq client is not configured. Check your environment variables: VITE_GROQ_API_KEY, VITE_GROQ_BASE_URL, VITE_GROQ_MODEL')
 	}
 
 	const snapshot = sanitizeTodos(todos)
@@ -140,16 +133,15 @@ export async function sendChatMessage(messages = [], todos = []) {
 		...messages,
 	]
 
-	const url = buildUrl()
-	const response = await fetch(url, {
+	const response = await fetch(baseUrl, {
 		method: 'POST',
 		headers: {
 			'Content-Type': 'application/json',
-			'api-key': apiKey,
+			'Authorization': `Bearer ${apiKey}`,
 		},
 		body: JSON.stringify({
 			messages: payloadMessages,
-			model: deployment,
+			model: model,
 			temperature: 0.2,
 			max_tokens: 700,
 		}),
@@ -157,7 +149,7 @@ export async function sendChatMessage(messages = [], todos = []) {
 
 	if (!response.ok) {
 		const text = await response.text()
-		throw new Error(`Azure OpenAI error ${response.status}: ${text || response.statusText}`)
+		throw new Error(`Groq error ${response.status}: ${text || response.statusText}`)
 	}
 
 	const data = await response.json()

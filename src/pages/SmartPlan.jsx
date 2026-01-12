@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import '../App.css'
-import { applyModifications, normalizeTodo, sendChatMessage } from '../utils/azureOpenAI'
+import { applyModifications, normalizeTodo, sendChatMessage } from '../utils/groq'
 import ConversationManager, {
   loadConversations,
   getCurrentConversationId,
