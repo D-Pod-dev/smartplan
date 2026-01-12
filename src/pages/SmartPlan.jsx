@@ -252,7 +252,7 @@ export default function SmartPlan() {
         )
       }
     } catch (err) {
-      setError(err?.message || 'Unable to reach SmartPlan. Check your Azure OpenAI settings.')
+      setError(err?.message || 'Unable to reach SmartPlan. Check your Groq API settings.')
     } finally {
       setSending(false)
     }
