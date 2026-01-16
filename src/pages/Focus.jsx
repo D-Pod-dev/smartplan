@@ -825,6 +825,7 @@ export default function Focus() {
           onEnterEditMode={enterQueueEditMode}
           onSaveEdits={saveQueueEdits}
           onDiscardEdits={discardQueueEdits}
+          onStartFromQueue={startFocusSessionFromQueue}
         />
 
         <div className="focus-layout__main">
@@ -880,23 +881,6 @@ export default function Focus() {
                     ? 'Start the next queued task or pick a different one below.'
                     : 'Choose a task with allocated time to begin a focus session.'}
                 </p>
-
-                {queue.length > 0 && (
-                  <div className="insight" style={{ marginTop: '1rem' }}>
-                    <div className="insight__label">Focus queue ready</div>
-                    <div className="insight__meta" style={{ marginTop: '0.3rem' }}>
-                      {queue.length} task{queue.length === 1 ? '' : 's'} in queue. Start your session or adjust your plan.
-                    </div>
-                    <div className="actions" style={{ marginTop: '0.75rem' }}>
-                      <button
-                        className="action primary"
-                        onClick={() => startFocusSessionFromQueue(Math.min(currentQueueIndex, queue.length - 1))}
-                      >
-                        Start Focus Session
-                      </button>
-                    </div>
-                  </div>
-                )}
 
                 {sortedTasks.length === 0 ? (
                   <p className="panel__copy" style={{ marginTop: '1rem' }}>

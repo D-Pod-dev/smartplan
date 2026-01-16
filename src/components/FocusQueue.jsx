@@ -20,6 +20,7 @@ export default function FocusQueue({
   onEnterEditMode,
   onSaveEdits,
   onDiscardEdits,
+  onStartFromQueue,
 }) {
   const itemRefs = useRef({})
   const positionsRef = useRef({})
@@ -109,6 +110,22 @@ export default function FocusQueue({
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.6rem' }}>
         <div className="panel__title">Queue ({queue.length})</div>
         <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}>
+          {timerState === 'idle' && !queueEditMode && (
+            <button
+              className="action primary"
+              onClick={() => onStartFromQueue(Math.min(currentQueueIndex, queue.length - 1))}
+              disabled={queue.length === 0}
+              style={{ 
+                fontSize: '0.85rem', 
+                padding: '0.4rem 0.8rem',
+                opacity: queue.length === 0 ? 0.5 : 1,
+                cursor: queue.length === 0 ? 'not-allowed' : 'pointer',
+                transition: 'opacity 0.2s ease, cursor 0.2s ease'
+              }}
+            >
+              Start
+            </button>
+          )}
           {timerState === 'idle' && !queueEditMode && (
             <button
               className="action ghost"

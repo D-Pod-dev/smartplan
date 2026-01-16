@@ -592,6 +592,7 @@ export default function Today({ tags = [], goals = [], setGoals = () => {}, onAd
           completed: false,
           completedDate: null,
           due: { date: nextDueDate, time: task.due?.time || '' },
+          inToday: false,
         }
         
         setTasks((prev) => [
@@ -868,14 +869,11 @@ export default function Today({ tags = [], goals = [], setGoals = () => {}, onAd
     style: { flex: '0 1 auto' },
   }
 
-  // Filter tasks to only show incomplete tasks due tomorrow or earlier
+  // Filter tasks to only show incomplete tasks marked as "In Today" or due today
   const filteredTasks = useMemo(() => {
     const today = getCurrentDate()
     today.setHours(0, 0, 0, 0)
     const todayStr = today.toISOString().split('T')[0]
-    const tomorrow = new Date(today)
-    tomorrow.setDate(tomorrow.getDate() + 1)
-    const tomorrowStr = tomorrow.toISOString().split('T')[0]
 
     return tasks.filter((task) => {
       // Hide completed tasks from previous days
@@ -891,11 +889,10 @@ export default function Today({ tags = [], goals = [], setGoals = () => {}, onAd
       // Show incomplete tasks marked as "In Today"
       if (task.inToday) return true
       
-      // If no due date, don't show it
-      if (!task.due?.date) return false
+      // Show incomplete tasks due today (even if not explicitly marked "In Today")
+      if (task.due?.date === todayStr) return true
       
-      // Show tasks due tomorrow or earlier
-      return task.due.date <= tomorrowStr
+      return false
     })
   }, [tasks, currentDateKey])
 
