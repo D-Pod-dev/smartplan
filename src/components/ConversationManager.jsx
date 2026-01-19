@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import '../App.css'
+import { generateUniqueId } from '../utils/idGenerator'
 
 const CONVERSATIONS_STORAGE_KEY = 'smartplan.conversations'
 const CURRENT_CONVERSATION_KEY = 'smartplan.currentConversation'
@@ -40,7 +41,7 @@ export const setCurrentConversationId = (id) => {
 }
 
 export const createConversation = (title) => {
-  const id = Date.now().toString()
+  const id = generateUniqueId().toString()
   const now = new Date()
   const dateStr = now.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
   const timeStr = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true })

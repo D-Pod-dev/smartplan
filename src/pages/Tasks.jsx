@@ -9,6 +9,7 @@ import TodoItem from '../components/TodoItem'
 import { getCurrentDate } from '../utils/dateUtils'
 import { calculateFirstOccurrence, isRecurringTask } from '../utils/recurrenceUtils'
 import { useSupabaseTaskSync } from '../hooks/useSupabaseTaskSync'
+import { generateUniqueId } from '../utils/idGenerator'
 
 const buildSeedTasks = () => {
   const todayIso = getCurrentDate().toISOString().split('T')[0]
@@ -133,7 +134,7 @@ const normalizeTask = (task) => {
   }
 
   return {
-    id: Number(task?.id ?? Date.now()),
+    id: Number(task?.id ?? generateUniqueId()),
     title: task?.title ?? 'Untitled task',
     due: finalDue,
     tags: normalizedTags,
@@ -316,7 +317,7 @@ export default function Tasks({ tags = [], goals = [], setGoals = () => {}, onAd
           }
           
           const newTask = {
-            id: Date.now(),
+            id: generateUniqueId(),
             title: `Work on '${goal.title}'`,
             due: { date: todayStr, time: '' },
             priority: goal.priority === 'none' ? 'None' : goal.priority.charAt(0).toUpperCase() + goal.priority.slice(1),
@@ -462,7 +463,7 @@ export default function Tasks({ tags = [], goals = [], setGoals = () => {}, onAd
     const objective = Number.isFinite(parsedObjective) ? parsedObjective : null
 
     const newTask = {
-      id: Date.now(),
+      id: generateUniqueId(),
       title,
       due: { date: composerDraft.dueDate, time: composerDraft.dueTime },
       priority: composerDraft.priority || 'None',

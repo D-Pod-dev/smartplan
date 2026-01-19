@@ -4,6 +4,7 @@ import ComposerRow from '../components/ComposerRow'
 import TagManager from '../components/TagManager'
 import TodoItem from '../components/TodoItem'
 import { getCurrentDate } from '../utils/dateUtils'
+import { generateUniqueId } from '../utils/idGenerator'
 
 const PRESET_UNITS = ['pages', 'words', 'minutes']
 
@@ -102,7 +103,7 @@ export default function Goals({ tags = [], goals: externalGoals, setGoals: setEx
     const normalizedTags = normalizeTags(composerDraft.tags)
 
     const newGoal = {
-      id: Date.now(),
+      id: generateUniqueId(),
       title: composerDraft.title,
       dueDate: composerDraft.dueDate,
       target: parseFloat(composerDraft.target),

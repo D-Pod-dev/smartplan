@@ -61,6 +61,8 @@ export const normalizeRecurrence = (recurrence) => {
 	}
 }
 
+import { generateUniqueId } from './idGenerator'
+
 export const normalizeTodo = (todo = {}) => {
 	const dueDate = todo?.due?.date || ''
 	const dueTime = todo?.due?.time || ''
@@ -71,7 +73,7 @@ export const normalizeTodo = (todo = {}) => {
 	const recurrence = normalizeRecurrence(todo.recurrence)
 
 	return {
-		id: Number(todo.id ?? Date.now()),
+		id: Number(todo.id ?? generateUniqueId()),
 		title: todo.title || 'Untitled task',
 		due: { date: dueDate, time: dueTime },
 		priority: todo.priority || 'None',

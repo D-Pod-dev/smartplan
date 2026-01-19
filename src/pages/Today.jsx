@@ -10,6 +10,7 @@ import { getCurrentDate } from '../utils/dateUtils'
 import { calculateFirstOccurrence, calculateNextOccurrence, isRecurringTask } from '../utils/recurrenceUtils'
 import { loadInsights, saveInsights, updateInsightsFromTasks } from '../utils/insightTracker'
 import { useSupabaseTaskSync } from '../hooks/useSupabaseTaskSync'
+import { generateUniqueId } from '../utils/idGenerator'
 
 const buildSeedTasks = () => {
   const todayIso = getCurrentDate().toISOString().split('T')[0]
@@ -179,7 +180,7 @@ const normalizeTask = (task) => {
   }
 
   return {
-    id: Number(task?.id ?? Date.now()),
+    id: Number(task?.id ?? generateUniqueId()),
     title: task?.title ?? 'Untitled task',
     due: finalDue,
     tags: normalizedTags,
@@ -362,7 +363,7 @@ export default function Today({ tags = [], goals = [], setGoals = () => {}, onAd
           }
           
           const newTask = {
-            id: Date.now(),
+            id: generateUniqueId(),
             title: `Work on '${goal.title}'`,
             due: { date: todayStr, time: '' },
             priority: goal.priority === 'none' ? 'None' : goal.priority.charAt(0).toUpperCase() + goal.priority.slice(1),
@@ -534,7 +535,7 @@ export default function Today({ tags = [], goals = [], setGoals = () => {}, onAd
     }
 
     const newTask = {
-      id: Date.now(),
+      id: generateUniqueId(),
       title,
       due: { date: dueDate, time: composerDraft.dueTime },
       priority: composerDraft.priority || 'None',
@@ -605,7 +606,7 @@ export default function Today({ tags = [], goals = [], setGoals = () => {}, onAd
       if (nextDueDate) {
         const nextTask = {
           ...task,
-          id: Date.now(),
+          id: generateUniqueId(),
           completed: false,
           completedDate: null,
           due: { date: nextDueDate, time: task.due?.time || '' },
