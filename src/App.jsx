@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Routes, Route } from 'react-router-dom'
+import { Routes, Route, useLocation } from 'react-router-dom'
 import './App.css'
 import Sidebar from './components/Sidebar.jsx'
 import Today from './pages/Today.jsx'
@@ -71,15 +71,18 @@ const deriveDevPanelSettings = () => {
 }
 
 function App() {
+  const location = useLocation()
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
   const [tags, setTags] = useState(() => deriveInitialTags())
   const [goals, setGoals] = useState(() => deriveInitialGoals())
-  const [deleteTasksByGoalId, setDeleteTasksByGoalId] = useState(() => () => {})
+  const [deleteTasksByGoalId, setDeleteTasksByGoalId] = useState(() => {})
   const devPanelSettings = deriveDevPanelSettings()
   const [devPanelEnabled, setDevPanelEnabled] = useState(devPanelSettings.enabled)
   const [devPanelInNav, setDevPanelInNav] = useState(devPanelSettings.inNav)
   const [devPanelInSidebar, setDevPanelInSidebar] = useState(devPanelSettings.inSidebar)
   const [debugDate, setDebugDateState] = useState(() => getDebugDate())
+  const [timerOverrideTime, setTimerOverrideTime] = useState(null)
+  const [timerState, setTimerState] = useState('idle')
 
   // Sync tags and goals with Supabase
   const { syncStatus: tagsSyncStatus } = useSupabaseTags(tags)
@@ -100,6 +103,18 @@ function App() {
       inSidebar: devPanelInSidebar,
     }))
   }, [devPanelEnabled, devPanelInNav, devPanelInSidebar])
+
+  // Listen for timer state updates from Focus page
+  useEffect(() => {
+    const handleTimerStateUpdate = (event) => {
+      setTimerState(event.detail?.timerState || 'idle')
+    }
+
+    window.addEventListener('focusTimerStateUpdate', handleTimerStateUpdate)
+    return () => {
+      window.removeEventListener('focusTimerStateUpdate', handleTimerStateUpdate)
+    }
+  }, [])
 
   const closeSidebar = () => setIsSidebarOpen(false)
   const handleOverlayKeyDown = (event) => {
@@ -150,6 +165,14 @@ function App() {
     window.dispatchEvent(new CustomEvent('debugDateChanged'))
   }
 
+  const handleTimerOverride = (seconds) => {
+    setTimerOverrideTime(seconds)
+    // Dispatch custom event to notify Focus component
+    if (seconds !== null) {
+      window.dispatchEvent(new CustomEvent('focusTimerOverride', { detail: { seconds } }))
+    }
+  }
+
   return (
     <div className="app-shell">
       <button
@@ -162,7 +185,7 @@ function App() {
         {isSidebarOpen ? 'Close' : 'Menu'}
       </button>
 
-      <Sidebar isOpen={isSidebarOpen} onClose={closeSidebar} devPanelEnabled={devPanelEnabled} devPanelInSidebar={devPanelInSidebar} debugDate={debugDate} onDateChange={handleDateChange} />
+      <Sidebar isOpen={isSidebarOpen} onClose={closeSidebar} devPanelEnabled={devPanelEnabled} devPanelInSidebar={devPanelInSidebar} debugDate={debugDate} onDateChange={handleDateChange} currentPath={location.pathname} timerOverrideTime={timerOverrideTime} onTimerOverride={handleTimerOverride} timerState={timerState} />
 
       {isSidebarOpen && (
         <div

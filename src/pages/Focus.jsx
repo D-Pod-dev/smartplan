@@ -237,6 +237,30 @@ export default function Focus() {
     }
   }, [timerState, queueEditMode])
 
+  // Listen for focus timer override events
+  useEffect(() => {
+    const handleTimerOverride = (event) => {
+      const seconds = event.detail?.seconds
+      if (typeof seconds === 'number' && seconds >= 0) {
+        // If timer is running or paused, update the time
+        if (timerState === 'running' || timerState === 'paused') {
+          setTimeRemaining(seconds)
+          setTotalTime(seconds)
+        }
+      }
+    }
+
+    window.addEventListener('focusTimerOverride', handleTimerOverride)
+    return () => {
+      window.removeEventListener('focusTimerOverride', handleTimerOverride)
+    }
+  }, [timerState])
+
+  // Notify parent App of current timer state for sidebar visibility
+  useEffect(() => {
+    window.dispatchEvent(new CustomEvent('focusTimerStateUpdate', { detail: { timerState } }))
+  }, [timerState])
+
   const startFocusSessionFromQueue = (index, sourceQueue = queue) => {
     if (!sourceQueue || index >= sourceQueue.length) return
     setPendingTaskIndex(index)

@@ -1,4 +1,5 @@
 import { NavLink, useNavigate } from 'react-router-dom'
+import { useState } from 'react'
 import '../App.css'
 
 const mainNavItems = [
@@ -14,8 +15,39 @@ const footerNavItems = [
   { label: 'Settings', to: '/settings' },
 ]
 
-export default function Sidebar({ isOpen, onClose, devPanelEnabled, devPanelInSidebar, debugDate, onDateChange }) {
+export default function Sidebar({ isOpen, onClose, devPanelEnabled, devPanelInSidebar, debugDate, onDateChange, currentPath, timerOverrideTime, onTimerOverride, timerState }) {
   const navigate = useNavigate()
+  const [timerInput, setTimerInput] = useState('00:00')
+  
+  const isOnFocusPage = currentPath === '/focus'
+  const isTimerRunning = timerState === 'running'
+  
+  const handleTimerInputChange = (e) => {
+    const value = e.target.value
+    setTimerInput(value)
+  }
+
+  const handleApplyTimerOverride = () => {
+    // Parse MM:SS format
+    const parts = timerInput.split(':')
+    if (parts.length !== 2) return
+    
+    const minutes = parseInt(parts[0], 10)
+    const seconds = parseInt(parts[1], 10)
+    
+    if (isNaN(minutes) || isNaN(seconds) || minutes < 0 || seconds < 0 || seconds >= 60) {
+      alert('Please enter valid time in MM:SS format (e.g., 05:30)')
+      return
+    }
+    
+    const totalSeconds = minutes * 60 + seconds
+    onTimerOverride(totalSeconds)
+  }
+
+  const handleResetTimerOverride = () => {
+    setTimerInput('00:00')
+    onTimerOverride(null)
+  }
   return (
     <aside
       id="app-sidebar"
@@ -78,6 +110,37 @@ export default function Sidebar({ isOpen, onClose, devPanelEnabled, devPanelInSi
                 {debugDate ? '🟢 Override Active' : '⚪ System Date'}
               </div>
             </div>
+            {isOnFocusPage && isTimerRunning && (
+              <div className="sidebar-dev-panel-controls" style={{ marginTop: '12px', paddingTop: '12px', borderTop: '1px solid rgba(0,0,0,0.1)' }}>
+                <div style={{ fontSize: '0.85rem', fontWeight: '500', marginBottom: '8px' }}>Focus Timer Override</div>
+                <label className="sidebar-dev-panel-label">
+                  <span>Time (MM:SS)</span>
+                  <input 
+                    type="text" 
+                    value={timerInput}
+                    onChange={handleTimerInputChange}
+                    placeholder="05:30"
+                    className="sidebar-dev-panel-input"
+                  />
+                </label>
+                <button 
+                  onClick={handleApplyTimerOverride}
+                  className="sidebar-dev-panel-button"
+                  style={{ backgroundColor: '#4CAF50', color: 'white' }}
+                >
+                  Apply Override
+                </button>
+                <button 
+                  onClick={handleResetTimerOverride}
+                  className="sidebar-dev-panel-button"
+                >
+                  Reset Timer
+                </button>
+                <div className="sidebar-dev-panel-status">
+                  {timerOverrideTime !== null ? `🟢 Override: ${Math.floor(timerOverrideTime / 60)}:${(timerOverrideTime % 60).toString().padStart(2, '0')}` : '⚪ No Override'}
+                </div>
+              </div>
+            )}
           </div>
         )}
         <nav className="sidebar__nav">
