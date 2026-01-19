@@ -71,7 +71,7 @@ export const normalizeTodo = (todo = {}) => {
 	const recurrence = normalizeRecurrence(todo.recurrence)
 
 	return {
-		id: todo.id ?? Date.now(),
+		id: Number(todo.id ?? Date.now()),
 		title: todo.title || 'Untitled task',
 		due: { date: dueDate, time: dueTime },
 		priority: todo.priority || 'None',

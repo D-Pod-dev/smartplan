@@ -327,6 +327,8 @@ export default function Settings({ devPanelEnabled, onToggleDevPanel, devPanelIn
     localStorage.setItem('smartplan.tasks', JSON.stringify([]))
     localStorage.setItem('smartplan.tags', JSON.stringify([]))
     localStorage.setItem('smartplan.settings.focus', JSON.stringify({ workDuration: 25, breakDuration: 5, enableBreaks: true }))
+    localStorage.setItem('smartplan.conversations', JSON.stringify([]))
+    localStorage.removeItem('smartplan.currentConversation')
     
     setTaskCount(0)
     setFocusSettings({ workDuration: 25, breakDuration: 5, enableBreaks: true })

@@ -179,7 +179,7 @@ const normalizeTask = (task) => {
   }
 
   return {
-    id: task?.id ?? Date.now(),
+    id: Number(task?.id ?? Date.now()),
     title: task?.title ?? 'Untitled task',
     due: finalDue,
     tags: normalizedTags,
@@ -555,7 +555,9 @@ export default function Today({ tags = [], goals = [], setGoals = () => {}, onAd
   const toggleTask = (id) => {
     if (editingId) return
     
-    const task = tasks.find((t) => t.id === id)
+    // Normalize ID for comparison
+    const normalizedTaskId = Number(id) || id
+    const task = tasks.find((t) => (Number(t.id) || t.id) === normalizedTaskId)
     if (!task) return
 
     // If task is being completed and has a goalId, update the goal's progress
@@ -612,7 +614,7 @@ export default function Today({ tags = [], goals = [], setGoals = () => {}, onAd
         
         setTasks((prev) => [
           ...prev.map((t) => 
-            t.id === id 
+            (Number(t.id) || t.id) === normalizedTaskId
               ? { 
                   ...t, 
                   completed: true,
@@ -627,7 +629,7 @@ export default function Today({ tags = [], goals = [], setGoals = () => {}, onAd
     }
     
     setTasks((prev) => prev.map((t) => 
-      t.id === id 
+      (Number(t.id) || t.id) === normalizedTaskId
         ? { 
             ...t, 
             completed: !t.completed,
@@ -674,26 +676,34 @@ export default function Today({ tags = [], goals = [], setGoals = () => {}, onAd
         ? editingDraft.objective
         : Number(editingDraft.objective)
 
-    setTasks((prev) => prev.map((t) => (t.id === id
-      ? {
-          ...t,
-          title,
-          due: { date: editingDraft.dueDate, time: editingDraft.dueTime },
-          priority: editingDraft.priority || 'None',
-          tags: normalizedTags,
-          timeAllocated,
-          objective,
-          recurrence: buildRecurrenceFromDraft(editingDraft),
-          inToday: editingDraft.inToday,
-        }
-      : t)))
+    // Normalize ID for comparison (handle both number and string IDs)
+    const normalizedEditId = Number(id) || id
+    
+    setTasks((prev) => prev.map((t) => {
+      const normalizedTaskId = Number(t.id) || t.id
+      return normalizedTaskId === normalizedEditId
+        ? {
+            ...t,
+            title,
+            due: { date: editingDraft.dueDate, time: editingDraft.dueTime },
+            priority: editingDraft.priority || 'None',
+            tags: normalizedTags,
+            timeAllocated,
+            objective,
+            recurrence: buildRecurrenceFromDraft(editingDraft),
+            inToday: editingDraft.inToday,
+          }
+        : t
+    }))
 
     normalizedTags.forEach((tag) => onAddTag(tag))
     cancelEdit()
   }
 
   const deleteTask = (id) => {
-    const task = tasks.find((t) => t.id === id)
+    // Normalize ID for comparison
+    const normalizedEditId = Number(id) || id
+    const task = tasks.find((t) => (Number(t.id) || t.id) === normalizedEditId)
     if (!task) return
 
     const confirmMessage = isRecurringTask(task)
@@ -702,8 +712,8 @@ export default function Today({ tags = [], goals = [], setGoals = () => {}, onAd
 
     if (!window.confirm(confirmMessage)) return
 
-    setTasks((prev) => prev.filter((t) => t.id !== id))
-    if (editingId === id) {
+    setTasks((prev) => prev.filter((t) => (Number(t.id) || t.id) !== normalizedEditId))
+    if ((Number(editingId) || editingId) === normalizedEditId) {
       cancelEdit()
     }
   }
@@ -984,7 +994,10 @@ export default function Today({ tags = [], goals = [], setGoals = () => {}, onAd
 
           <ul className="list list--focus">
             {sortedTasks.map((task) => {
-              const isEditing = editingId === task.id
+              // Normalize ID for comparison (handle both number and string IDs)
+              const normalizedEditingId = Number(editingId) || editingId
+              const normalizedTaskId = Number(task.id) || task.id
+              const isEditing = normalizedEditingId === normalizedTaskId
               return (
                 <TodoItem
                   key={task.id}

@@ -4,7 +4,7 @@ export const toDbTask = (task, userId) => {
   const dueDate = task?.due?.date || null
   const dueTime = task?.due?.time || null
   return {
-    id: task.id,
+    id: String(task.id),
     user_id: userId,
     title: task.title || 'Untitled task',
     due_date: dueDate || null,
@@ -22,7 +22,7 @@ export const toDbTask = (task, userId) => {
 }
 
 export const fromDbTask = (row = {}) => ({
-  id: row.id,
+  id: Number(row.id) || row.id,
   title: row.title || 'Untitled task',
   due: { date: row.due_date || '', time: row.due_time || '' },
   priority: row.priority || 'None',
@@ -44,23 +44,25 @@ export const fetchTasksForUser = async (supabase, userId) => {
 
 export const saveTasksForUser = async (supabase, userId, tasks = []) => {
   if (!Array.isArray(tasks)) return
-  if (!tasks.length) {
-    await supabase.from(TABLE).delete().eq('user_id', userId)
-    return
-  }
-
-  const payload = tasks.map((t) => toDbTask(t, userId))
-  const ids = tasks.map((t) => t.id)
-  const { error: upsertError } = await supabase.from(TABLE).upsert(payload, { onConflict: 'user_id,id' })
-  if (upsertError) throw upsertError
-
-  // Delete tasks that are no longer in the local list
-  const { error: deleteError } = await supabase
+  
+  // Clear all old tasks for this user first (prevents duplicates)
+  const { error: deleteAllError } = await supabase
     .from(TABLE)
     .delete()
     .eq('user_id', userId)
-    .not('id', 'in', `(${ids.join(',')})`)
-  if (deleteError) throw deleteError
+  
+  if (deleteAllError) throw deleteAllError
+  
+  // If no tasks, we're done
+  if (!tasks.length) return
+  
+  // Insert all tasks fresh (this is safer than upsert)
+  const payload = tasks.map((t) => toDbTask(t, userId))
+  const { error: insertError } = await supabase
+    .from(TABLE)
+    .insert(payload)
+  
+  if (insertError) throw insertError
 }
 
 export default {

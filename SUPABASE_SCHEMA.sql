@@ -120,6 +120,66 @@ CREATE POLICY "goals_user_policy"
   WITH CHECK ((select auth.uid()) = user_id);
 
 -- ============================================
+-- TASKS TABLE
+-- ============================================
+CREATE TABLE IF NOT EXISTS tasks (
+  id TEXT NOT NULL,
+  user_id UUID NOT NULL REFERENCES auth.users,
+  title TEXT NOT NULL,
+  due_date TEXT,
+  due_time TEXT,
+  priority TEXT DEFAULT 'None',
+  tags TEXT[] DEFAULT '{}',
+  completed BOOLEAN DEFAULT FALSE,
+  completed_date TEXT,
+  time_allocated INTEGER,
+  objective TEXT,
+  goal_id TEXT,
+  recurrence JSONB DEFAULT '{"type":"None","interval":null,"unit":"day","daysOfWeek":[]}'::jsonb,
+  in_today BOOLEAN DEFAULT FALSE,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
+  PRIMARY KEY (user_id, id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_tasks_user_id ON tasks(user_id);
+CREATE INDEX IF NOT EXISTS idx_tasks_due_date ON tasks(due_date);
+CREATE INDEX IF NOT EXISTS idx_tasks_goal_id ON tasks(goal_id);
+CREATE INDEX IF NOT EXISTS idx_tasks_completed ON tasks(completed);
+
+-- RLS policies for tasks
+ALTER TABLE tasks ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "tasks_deny_anon" ON tasks;
+DROP POLICY IF EXISTS "tasks_select_authenticated" ON tasks;
+DROP POLICY IF EXISTS "tasks_insert_authenticated" ON tasks;
+DROP POLICY IF EXISTS "tasks_update_authenticated" ON tasks;
+DROP POLICY IF EXISTS "tasks_delete_authenticated" ON tasks;
+DROP POLICY IF EXISTS "Users can view their own tasks" ON tasks;
+DROP POLICY IF EXISTS "Anonymous users can view their own tasks" ON tasks;
+DROP POLICY IF EXISTS "Users can insert their own tasks" ON tasks;
+DROP POLICY IF EXISTS "Anonymous users can insert their own tasks" ON tasks;
+DROP POLICY IF EXISTS "Users can update their own tasks" ON tasks;
+DROP POLICY IF EXISTS "Anonymous users can update their own tasks" ON tasks;
+DROP POLICY IF EXISTS "Users can delete their own tasks" ON tasks;
+DROP POLICY IF EXISTS "Anonymous users can delete their own tasks" ON tasks;
+DROP POLICY IF EXISTS "Enable authenticated users to manage their own tasks" ON tasks;
+
+CREATE POLICY "tasks_user_policy"
+  ON tasks
+  FOR ALL
+  TO authenticated
+  USING ((select auth.uid()) = user_id)
+  WITH CHECK ((select auth.uid()) = user_id);
+
+-- Trigger for auto-updating updated_at on tasks
+DROP TRIGGER IF EXISTS update_tasks_updated_at ON tasks;
+CREATE TRIGGER update_tasks_updated_at
+  BEFORE UPDATE ON tasks
+  FOR EACH ROW
+  EXECUTE FUNCTION update_updated_at_column();
+
+-- ============================================
 -- FOCUS QUEUE TABLE
 -- ============================================
 CREATE TABLE IF NOT EXISTS focus_queue (

@@ -129,6 +129,13 @@ function MyComponent() {
    - `user_id`, `tag` (composite PK)
    - `created_at` (TIMESTAMPTZ)
 
+7. **tasks** - User tasks
+   - `user_id`, `id` (composite PK)
+   - `title`, `due_date`, `due_time`, `priority`, `tags`
+   - `completed`, `completed_date`, `time_allocated`, `objective`
+   - `goal_id`, `recurrence` (JSONB), `in_today`
+   - `created_at`, `updated_at` (TIMESTAMPTZ)
+
 ### Row Level Security (RLS)
 
 All tables have RLS enabled with policies that ensure:
@@ -197,6 +204,7 @@ const { syncStatus } = useSupabaseTags(tags, { enabled: false })
 DELETE FROM conversations WHERE user_id = 'user-uuid';
 DELETE FROM user_settings WHERE user_id = 'user-uuid';
 DELETE FROM goals WHERE user_id = 'user-uuid';
+DELETE FROM tasks WHERE user_id = 'user-uuid';
 DELETE FROM focus_queue WHERE user_id = 'user-uuid';
 DELETE FROM user_insights WHERE user_id = 'user-uuid';
 DELETE FROM user_tags WHERE user_id = 'user-uuid';
