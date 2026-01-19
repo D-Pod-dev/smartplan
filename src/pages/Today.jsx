@@ -237,6 +237,7 @@ export default function Today({ tags = [], goals = [], setGoals = () => {}, onAd
   const [tagManagerOpen, setTagManagerOpen] = useState(false)
   const [tagManagerContext, setTagManagerContext] = useState('composer')
   const [originalTags, setOriginalTags] = useState([])
+  const [showBacklog, setShowBacklog] = useState(false)
   const composerRef = useRef(null)
   const composerSettingsRef = useRef(null)
   const editingSettingsRef = useRef(null)
@@ -890,6 +891,19 @@ export default function Today({ tags = [], goals = [], setGoals = () => {}, onAd
     const todayStr = today.toISOString().split('T')[0]
 
     return tasks.filter((task) => {
+      // When showing backlog, show incomplete tasks that are overdue or not in today's list
+      if (showBacklog) {
+        if (task.completed) return false
+        
+        // Show overdue tasks (due date exists and is before today)
+        if (task.due?.date && task.due.date < todayStr) return true
+        
+        // Show tasks not in today's list (not marked inToday and not due today)
+        if (!task.inToday && task.due?.date !== todayStr) return true
+        
+        return false
+      }
+      
       // Hide completed tasks from previous days
       if (task.completed && task.completedDate && task.completedDate < todayStr) {
         return false
@@ -908,7 +922,7 @@ export default function Today({ tags = [], goals = [], setGoals = () => {}, onAd
       
       return false
     })
-  }, [tasks, currentDateKey])
+  }, [tasks, currentDateKey, showBacklog])
 
   const sortedTasks = useMemo(() => sortTasksForDisplay(filteredTasks, sortOption, sortDirection), [filteredTasks, sortOption, sortDirection])
 
@@ -920,15 +934,15 @@ export default function Today({ tags = [], goals = [], setGoals = () => {}, onAd
         <p className="lede">Plan your day with ease, for maximum productivity.</p>
         <div className="actions">
           <button className="action primary" type="button" onClick={() => setComposerOpen(!composerOpen)}>Add task</button>
-          <button className="action ghost" type="button">Ask SmartPlan</button>
-          <button className="action link" type="button">View backlog</button>
+          <button className="action ghost" type="button" onClick={() => navigate('/chat')}>Ask SmartPlan</button>
+          <button className="action link" type="button" onClick={() => setShowBacklog(!showBacklog)}>{showBacklog ? 'View today' : 'View backlog'}</button>
         </div>
       </header>
 
       <section className="panels panels--grid">
         <div className="panel panel--focus">
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: composerOpen ? '0.9rem' : '0' }}>
-            <div className="panel__title">Today&apos;s tasks</div>
+            <div className="panel__title">{showBacklog ? 'Backlog (overdue & unscheduled)' : 'Today\'s tasks'}</div>
             <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', marginLeft: 'auto' }}>
               <label style={{ display: 'inline-flex', alignItems: 'center', gap: '0.45rem', fontSize: '0.95rem', color: 'var(--muted)' }}>
                 <span>Sort</span>
@@ -1180,8 +1194,6 @@ export default function Today({ tags = [], goals = [], setGoals = () => {}, onAd
               )
             })}
           </ul>
-
-          <button className="action ghost" type="button">Auto-prioritize with SmartPlan</button>
         </div>
       </section>
 

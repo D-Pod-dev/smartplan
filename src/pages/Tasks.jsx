@@ -780,7 +780,7 @@ export default function Tasks({ tags = [], goals = [], setGoals = () => {}, onAd
         <p className="lede">View and manage all your tasks.</p>
         <div className="actions">
           <button className="action primary" type="button" onClick={() => setComposerOpen(!composerOpen)}>Add task</button>
-          <button className="action ghost" type="button">Ask SmartPlan</button>
+          <button className="action ghost" type="button" onClick={() => navigate('/chat')}>Ask SmartPlan</button>
         </div>
       </header>
 
@@ -1039,8 +1039,6 @@ export default function Tasks({ tags = [], goals = [], setGoals = () => {}, onAd
               )
             })}
           </ul>
-
-          <button className="action ghost" type="button">Auto-prioritize with SmartPlan</button>
         </div>
       </section>
 
