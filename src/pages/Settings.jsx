@@ -5,6 +5,7 @@ import '../App.css'
 import { getCurrentDate } from '../utils/dateUtils'
 import { calculateFirstOccurrence } from '../utils/recurrenceUtils'
 import { useSupabase } from '../contexts/SupabaseProvider'
+import { useSupabaseSettings } from '../hooks/useSupabaseSettings'
 
 const deriveFocusSettings = () => {
   if (typeof localStorage !== 'undefined') {
@@ -28,17 +29,29 @@ export default function Settings({ devPanelEnabled, onToggleDevPanel, devPanelIn
   const [localDevInNav, setLocalDevInNav] = useState(devPanelInNav)
   const [localDevInSidebar, setLocalDevInSidebar] = useState(devPanelInSidebar)
   const [markdownPreviewOpen, setMarkdownPreviewOpen] = useState(false)
-  const { user, authReady, authError, signInWithOtp, signInAnonymously, signInWithCode, signOut, supabase } = useSupabase()
+  const { user, authReady, authError, signInWithOtp, signInAnonymously, signOut, supabase } = useSupabase()
   const [authEmail, setAuthEmail] = useState('')
   const [authMessage, setAuthMessage] = useState('')
   const [authBusy, setAuthBusy] = useState(false)
   const [displayName, setDisplayName] = useState('')
   const [originalDisplayName, setOriginalDisplayName] = useState('')
   const [editingDisplayName, setEditingDisplayName] = useState(false)
-  const [signInCode, setSignInCode] = useState('')
-  const [showCodeInput, setShowCodeInput] = useState(false)
+  const provider = user?.app_metadata?.provider
+  const isAnonymous = (user?.is_anonymous ?? provider === 'anonymous') === true
   
   const [focusSettings, setFocusSettings] = useState(() => deriveFocusSettings())
+  
+  // Sync settings with Supabase
+  const settingsData = {
+    focus: focusSettings,
+    devPanel: {
+      enabled: localDevEnabled,
+      inNav: localDevInNav,
+      inSidebar: localDevInSidebar,
+    },
+  }
+  const { syncStatus: settingsSyncStatus } = useSupabaseSettings(settingsData)
+  
   const getStoredTaskCount = () => {
     if (typeof localStorage === 'undefined') return 0
     const saved = localStorage.getItem('smartplan.tasks')
@@ -155,21 +168,6 @@ export default function Settings({ devPanelEnabled, onToggleDevPanel, devPanelIn
     localStorage.setItem('smartplan.settings.focus', JSON.stringify(focusSettings))
   }, [focusSettings])
 
-  const handleSignInWithCode = async () => {
-    setAuthMessage('')
-    setAuthBusy(true)
-    try {
-      await signInWithCode(signInCode)
-      setSignInCode('')
-      setShowCodeInput(false)
-      setAuthMessage('Signed in with code')
-    } catch (err) {
-      setAuthMessage(err?.message || 'Unable to sign in with code')
-    } finally {
-      setAuthBusy(false)
-    }
-  }
-
   const handleToggle = () => {
     const newValue = !localDevEnabled
     setLocalDevEnabled(newValue)
@@ -244,8 +242,15 @@ export default function Settings({ devPanelEnabled, onToggleDevPanel, devPanelIn
     setAuthMessage('')
     setAuthBusy(true)
     try {
+      if (isAnonymous) {
+        const confirmed = window.confirm('Reset anonymous session? This signs you out and may remove access to synced data for this anonymous account.')
+        if (!confirmed) {
+          setAuthBusy(false)
+          return
+        }
+      }
       await signOut()
-      setAuthMessage('Signed out')
+      setAuthMessage(isAnonymous ? 'Anonymous session reset' : 'Signed out')
     } catch (err) {
       setAuthMessage(err?.message || 'Unable to sign out')
     } finally {
@@ -384,87 +389,20 @@ export default function Settings({ devPanelEnabled, onToggleDevPanel, devPanelIn
               </div>
 
               <div style={{ borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: '0.5rem', marginTop: '0.5rem' }}>
-                <h3 style={{ fontSize: '0.95rem', fontWeight: 500, marginBottom: '0.5rem', color: 'var(--heading)' }}>Create account with code</h3>
-                <p style={{ fontSize: '0.9rem', marginBottom: '0.75rem', opacity: 0.8 }}>Generate a unique code to access your account from any device.</p>
+                <h3 style={{ fontSize: '0.95rem', fontWeight: 500, marginBottom: '0.5rem', color: 'var(--heading)' }}>Anonymous account</h3>
+                <p style={{ fontSize: '0.9rem', marginBottom: '0.75rem', opacity: 0.8 }}>Create an account without email to try out SmartPlan.</p>
                 <button
                   type="button"
                   className="action ghost"
                   onClick={handleSignInAnonymously}
                   disabled={!authReady || authBusy}
                 >
-                  {authBusy ? 'Creating…' : 'Create new account'}
+                  {authBusy ? 'Creating…' : 'Create anonymous account'}
                 </button>
-                
-                <button
-                  type="button"
-                  className="action ghost"
-                  onClick={() => setShowCodeInput(!showCodeInput)}
-                  disabled={!authReady}
-                  style={{ marginLeft: '0.5rem' }}
-                >
-                  {showCodeInput ? 'Hide' : 'Already have a code?'}
-                </button>
-
-                {showCodeInput && (
-                  <div style={{ marginTop: '0.75rem' }}>
-                    <input
-                      type="text"
-                      className="todo-edit-input"
-                      value={signInCode}
-                      onChange={(e) => setSignInCode(e.target.value.toUpperCase())}
-                      placeholder="e.g., ABC123"
-                      disabled={authBusy}
-                      style={{ textTransform: 'uppercase', marginBottom: '0.5rem' }}
-                      maxLength="6"
-                    />
-                    <button
-                      type="button"
-                      className="action"
-                      onClick={handleSignInWithCode}
-                      disabled={authBusy || signInCode.length !== 6}
-                    >
-                      {authBusy ? 'Verifying…' : 'Verify code'}
-                    </button>
-                  </div>
-                )}
               </div>
             </>
           ) : (
             <>
-              <div style={{ marginBottom: '1.5rem' }}>
-                <h3 style={{ fontSize: '0.95rem', fontWeight: 500, marginBottom: '0.5rem', color: 'var(--heading)' }}>Your sign-in code</h3>
-                <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', marginBottom: '0.5rem' }}>
-                  <code style={{ 
-                    flex: 1, 
-                    padding: '0.5rem 0.75rem', 
-                    backgroundColor: 'rgba(255,255,255,0.08)', 
-                    borderRadius: '4px',
-                    fontFamily: 'monospace',
-                    fontSize: '1.1rem',
-                    letterSpacing: '2px',
-                    fontWeight: 'bold'
-                  }}>
-                    {user?.user_metadata?.sign_in_code || 'N/A'}
-                  </code>
-                  <button
-                    type="button"
-                    className="action ghost"
-                    onClick={() => {
-                      const code = user?.user_metadata?.sign_in_code
-                      if (code) {
-                        navigator.clipboard.writeText(code)
-                        setAuthMessage('Code copied!')
-                      }
-                    }}
-                  >
-                    Copy
-                  </button>
-                </div>
-                <p style={{ fontSize: '0.9rem', opacity: 0.7 }}>
-                  Share this code to sign in on another device.
-                </p>
-              </div>
-
               <div style={{ marginBottom: '1.5rem' }}>
                 <h3 style={{ fontSize: '0.95rem', fontWeight: 500, marginBottom: '0.5rem', color: 'var(--heading)' }}>Display name</h3>
                 {!editingDisplayName ? (
@@ -528,7 +466,7 @@ export default function Settings({ devPanelEnabled, onToggleDevPanel, devPanelIn
                 onClick={handleSignOut}
                 disabled={authBusy}
               >
-                Sign out
+                {isAnonymous ? 'Reset anonymous session' : 'Sign out'}
               </button>
             </>
           )}

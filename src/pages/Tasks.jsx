@@ -7,7 +7,7 @@ import TagManager from '../components/TagManager'
 import TaskDisplay from '../components/TaskDisplay'
 import TodoItem from '../components/TodoItem'
 import { getCurrentDate } from '../utils/dateUtils'
-import { isRecurringTask } from '../utils/recurrenceUtils'
+import { calculateFirstOccurrence, isRecurringTask } from '../utils/recurrenceUtils'
 import { useSupabaseTaskSync } from '../hooks/useSupabaseTaskSync'
 
 const buildSeedTasks = () => {
@@ -118,10 +118,24 @@ const normalizeTask = (task) => {
       : Number(rawObjective)
   const recurrence = normalizeRecurrence(task?.recurrence)
 
+  // For recurring tasks, ensure due date is set to next upcoming occurrence
+  let finalDue = parsedDue
+  if (recurrence && recurrence.type !== 'None' && !task?.completed) {
+    const today = getCurrentDate()
+    today.setHours(0, 0, 0, 0)
+    const todayStr = today.toISOString().split('T')[0]
+    
+    // If the task has no due date or due date is in the past, recalculate
+    if (!parsedDue.date || parsedDue.date < todayStr) {
+      const nextDate = calculateFirstOccurrence(recurrence, todayStr)
+      finalDue = { date: nextDate, time: parsedDue.time || '' }
+    }
+  }
+
   return {
     id: task?.id ?? Date.now(),
     title: task?.title ?? 'Untitled task',
-    due: parsedDue,
+    due: finalDue,
     tags: normalizedTags,
     priority: task?.priority ?? 'None',
     completed: Boolean(task?.completed),

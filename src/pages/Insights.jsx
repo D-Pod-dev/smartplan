@@ -1,10 +1,14 @@
 import { useEffect, useState } from 'react'
 import '../App.css'
 import { loadInsights, updateInsightsFromTasks, getInsightFormatted } from '../utils/insightTracker'
+import { useSupabaseInsights } from '../hooks/useSupabaseInsights'
 
 export default function Insights() {
   const [insights, setInsights] = useState(null)
   const [tasks, setTasks] = useState([])
+
+  // Sync insights with Supabase
+  const { syncStatus: insightsSyncStatus } = useSupabaseInsights(insights || {})
 
   useEffect(() => {
     // Load insights from localStorage

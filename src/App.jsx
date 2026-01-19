@@ -11,6 +11,8 @@ import Settings from './pages/Settings.jsx'
 import DevPanel from './pages/DevPanel.jsx'
 import Focus from './pages/Focus.jsx'
 import { setDebugDate, getDebugDate } from './utils/dateUtils.js'
+import { useSupabaseTags } from './hooks/useSupabaseTags'
+import { useSupabaseGoals } from './hooks/useSupabaseGoals'
 
 // Routed layout shell for pages
 
@@ -78,6 +80,10 @@ function App() {
   const [devPanelInNav, setDevPanelInNav] = useState(devPanelSettings.inNav)
   const [devPanelInSidebar, setDevPanelInSidebar] = useState(devPanelSettings.inSidebar)
   const [debugDate, setDebugDateState] = useState(() => getDebugDate())
+
+  // Sync tags and goals with Supabase
+  const { syncStatus: tagsSyncStatus } = useSupabaseTags(tags)
+  const { syncStatus: goalsSyncStatus } = useSupabaseGoals(goals)
 
   useEffect(() => {
     localStorage.setItem('smartplan.tags', JSON.stringify(tags))

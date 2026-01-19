@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import FocusQueue from '../components/FocusQueue'
+import { useSupabaseFocusQueue } from '../hooks/useSupabaseFocusQueue'
 import '../App.css'
 
 const deriveFocusSettings = () => {
@@ -157,6 +158,9 @@ export default function Focus() {
   const queueCollapseTimeoutRef = useRef(null)
   const intervalRef = useRef(null)
   const markCompleteButtonRef = useRef(null)
+
+  // Sync focus queue with Supabase
+  const { syncStatus: queueSyncStatus } = useSupabaseFocusQueue(queue, currentQueueIndex)
 
   const sortTasksForDisplay = useMemo(() => {
     const priorityRank = { High: 0, Medium: 1, Low: 2, None: 3 }

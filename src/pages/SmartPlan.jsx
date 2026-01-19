@@ -15,6 +15,7 @@ import ConversationManager, {
 } from '../components/ConversationManager'
 import { loadInsights, saveInsights, incrementAiAssistedTasks, incrementTotalTasksCreated } from '../utils/insightTracker'
 import { useSupabaseTaskSync } from '../hooks/useSupabaseTaskSync'
+import { useSupabaseConversations } from '../hooks/useSupabaseConversations'
 
 const TODO_STORAGE_KEY = 'smartplan.tasks'
 
@@ -61,12 +62,17 @@ export default function SmartPlan() {
   const [actionHistory, setActionHistory] = useState([]) // For undo functionality
   const [showRawForMessage, setShowRawForMessage] = useState({}) // messageId -> boolean
   const chatRef = useRef(null)
+  
+  // Sync tasks with Supabase
   useSupabaseTaskSync({
     tasks: todos,
     setTasks: setTodos,
     normalizeTask: normalizeTodo,
     storageKey: 'smartplan.tasks',
   })
+
+  // Sync conversations with Supabase
+  const { syncStatus: conversationsSyncStatus } = useSupabaseConversations(conversations, currentConversationId)
 
   const currentConversation = conversations.find((c) => c.id === currentConversationId)
   const chatThread = currentConversation?.messages || []
