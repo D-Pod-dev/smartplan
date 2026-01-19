@@ -62,6 +62,7 @@ export const normalizeRecurrence = (recurrence) => {
 }
 
 import { generateUniqueId } from './idGenerator'
+import { shouldTaskBeInToday } from './dateUtils'
 
 export const normalizeTodo = (todo = {}) => {
 	const dueDate = todo?.due?.date || ''
@@ -71,6 +72,15 @@ export const normalizeTodo = (todo = {}) => {
 	const tags = Array.isArray(todo.tags) ? todo.tags.filter(Boolean) : []
 	const objective = todo?.objective ?? todo?.target ?? null
 	const recurrence = normalizeRecurrence(todo.recurrence)
+
+	// Determine inToday: if explicitly set, use that; otherwise check if task should be in today based on due date
+	let inToday
+	if ('inToday' in todo) {
+		inToday = Boolean(todo.inToday)
+	} else {
+		// For new tasks created by SmartPlan, check if due date meets requirements (overdue, due today, or due tomorrow)
+		inToday = shouldTaskBeInToday(dueDate)
+	}
 
 	return {
 		id: Number(todo.id ?? generateUniqueId()),
@@ -84,7 +94,7 @@ export const normalizeTodo = (todo = {}) => {
 		objective,
 		goalId: todo?.goalId ?? null,
 		recurrence,
-		inToday: 'inToday' in todo ? Boolean(todo.inToday) : true,
+		inToday,
 	}
 }
 

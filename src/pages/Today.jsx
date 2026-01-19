@@ -937,6 +937,25 @@ export default function Today({ tags = [], goals = [], setGoals = () => {}, onAd
 
   const sortedTasks = useMemo(() => sortTasksForDisplay(filteredTasks, sortOption, sortDirection), [filteredTasks, sortOption, sortDirection])
 
+  // Calculate backlog count for indicator
+  const backlogCount = useMemo(() => {
+    const today = getCurrentDate()
+    today.setHours(0, 0, 0, 0)
+    const todayStr = today.toISOString().split('T')[0]
+
+    return tasks.filter((task) => {
+      if (task.completed) return false
+      
+      // Count overdue tasks (due date exists and is before today)
+      if (task.due?.date && task.due.date < todayStr) return true
+      
+      // Count tasks not in today's list (not marked inToday and not due today)
+      if (!task.inToday && task.due?.date !== todayStr) return true
+      
+      return false
+    }).length
+  }, [tasks, currentDateKey])
+
   return (
     <>
       <header className="page__header">
@@ -946,7 +965,10 @@ export default function Today({ tags = [], goals = [], setGoals = () => {}, onAd
         <div className="actions">
           <button className="action primary" type="button" onClick={() => setComposerOpen(!composerOpen)}>Add task</button>
           <button className="action ghost" type="button" onClick={() => navigate('/chat')}>Ask SmartPlan</button>
-          <button className="action link" type="button" onClick={() => setShowBacklog(!showBacklog)}>{showBacklog ? 'View today' : 'View backlog'}</button>
+          <button className="action link" type="button" onClick={() => setShowBacklog(!showBacklog)}>
+            {showBacklog ? 'View today' : 'View backlog'}
+            {backlogCount > 0 && <span style={{ marginLeft: '0.5rem', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '1.2rem', height: '1.2rem', borderRadius: '50%', backgroundColor: 'var(--accent)', color: 'white', fontSize: '0.75rem', fontWeight: 'bold' }}>{backlogCount}</span>}
+          </button>
         </div>
       </header>
 
