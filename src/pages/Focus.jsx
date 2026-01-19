@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import FocusQueue from '../components/FocusQueue'
 import { useSupabaseFocusQueue } from '../hooks/useSupabaseFocusQueue'
+import { useFocusTimer } from '../contexts/FocusTimerContext'
 import '../App.css'
 
 const deriveFocusSettings = () => {
@@ -126,21 +127,9 @@ export default function Focus() {
   const [focusSettings] = useState(() => deriveFocusSettings())
   const [tasks, setTasks] = useState(() => deriveTasksFromLocalStorage())
   const [queue, setQueue] = useState(() => deriveQueueFromLocalStorage())
-  const [selectedTask, setSelectedTask] = useState(null)
-  const [currentQueueIndex, setCurrentQueueIndex] = useState(0)
-  const [timerState, setTimerState] = useState('idle')
-  const [timeRemaining, setTimeRemaining] = useState(0)
-  const [totalTime, setTotalTime] = useState(0)
-  const [hasCheckedIn, setHasCheckedIn] = useState(false)
-  const [checkInMessage, setCheckInMessage] = useState('')
-  const [breakTimeRemaining, setBreakTimeRemaining] = useState(0)
-  const [breakPaused, setBreakPaused] = useState(false)
-  const [showTooltip, setShowTooltip] = useState(false)
-  const [activeSessionMinutes, setActiveSessionMinutes] = useState(null)
   const [queueExpanded, setQueueExpanded] = useState(true)
   const [queuePinned, setQueuePinned] = useState(false)
   const [showSkipModal, setShowSkipModal] = useState(false)
-  const [markCompletedBefore, setMarkCompletedBefore] = useState(false)
   const [taskCompletedMap, setTaskCompletedMap] = useState(() => deriveTaskCompletionMap())
   const [skipModalChoice, setSkipModalChoice] = useState(null)
   const [skipModalAction, setSkipModalAction] = useState(null)
@@ -154,10 +143,39 @@ export default function Focus() {
   const [pendingQueue, setPendingQueue] = useState(null)
   const [queueEditMode, setQueueEditMode] = useState(false)
   const [editQueueSnapshot, setEditQueueSnapshot] = useState(null)
+  const [showTooltip, setShowTooltip] = useState(false)
   const queueHoverRef = useRef(null)
   const queueCollapseTimeoutRef = useRef(null)
-  const intervalRef = useRef(null)
   const markCompleteButtonRef = useRef(null)
+
+  // Get timer state and actions from context
+  const {
+    timerState,
+    timeRemaining,
+    totalTime,
+    selectedTask,
+    currentQueueIndex,
+    hasCheckedIn,
+    checkInMessage,
+    breakTimeRemaining,
+    breakPaused,
+    activeSessionMinutes,
+    markCompletedBefore,
+    startSession,
+    pauseTimer,
+    resumeTimer,
+    stopSession,
+    startBreak,
+    skipBreak,
+    pauseBreak,
+    resumeBreak,
+    endBreakAndShowOptions,
+    endSessionAfterBreak,
+    updateCheckInMessage,
+    updateMarkCompletedBefore,
+    updateCurrentQueueIndex,
+    setTimerState,
+  } = useFocusTimer()
 
   // Sync focus queue with Supabase
   const { syncStatus: queueSyncStatus } = useSupabaseFocusQueue(queue, currentQueueIndex)
@@ -237,30 +255,6 @@ export default function Focus() {
     }
   }, [timerState, queueEditMode])
 
-  // Listen for focus timer override events
-  useEffect(() => {
-    const handleTimerOverride = (event) => {
-      const seconds = event.detail?.seconds
-      if (typeof seconds === 'number' && seconds >= 0) {
-        // If timer is running or paused, update the time
-        if (timerState === 'running' || timerState === 'paused') {
-          setTimeRemaining(seconds)
-          setTotalTime(seconds)
-        }
-      }
-    }
-
-    window.addEventListener('focusTimerOverride', handleTimerOverride)
-    return () => {
-      window.removeEventListener('focusTimerOverride', handleTimerOverride)
-    }
-  }, [timerState])
-
-  // Notify parent App of current timer state for sidebar visibility
-  useEffect(() => {
-    window.dispatchEvent(new CustomEvent('focusTimerStateUpdate', { detail: { timerState } }))
-  }, [timerState])
-
   const startFocusSessionFromQueue = (index, sourceQueue = queue) => {
     if (!sourceQueue || index >= sourceQueue.length) return
     setPendingTaskIndex(index)
@@ -272,16 +266,8 @@ export default function Focus() {
     if (pendingQueue === null || pendingTaskIndex === null) return
     if (pendingTaskIndex >= pendingQueue.length) return
     
-    setCurrentQueueIndex(pendingTaskIndex)
     const task = pendingQueue[pendingTaskIndex]
-    setSelectedTask(task)
-    const timeInSeconds = task.timeAllocated * 60
-    setTimeRemaining(timeInSeconds)
-    setTotalTime(timeInSeconds)
-    setActiveSessionMinutes(task.timeAllocated)
-    setTimerState('running')
-    setHasCheckedIn(false)
-    setMarkCompletedBefore(false)
+    startSession(task, pendingTaskIndex, pendingQueue.length)
     setShowStartTransition(false)
     setPendingTaskIndex(null)
     setPendingQueue(null)
@@ -311,44 +297,8 @@ export default function Focus() {
       ? 0
       : Math.min(currentQueueIndex, Math.max(0, newQueue.length - 1))
     setQueue(newQueue)
-    setCurrentQueueIndex(adjustedIndex)
+    updateCurrentQueueIndex(adjustedIndex)
     saveQueueToLocalStorage(newQueue)
-  }
-
-  const pauseTimer = () => {
-    setTimerState('paused')
-    setQueueExpanded(true)
-    if (queueCollapseTimeoutRef.current) {
-      clearTimeout(queueCollapseTimeoutRef.current)
-    }
-    if (intervalRef.current) {
-      clearInterval(intervalRef.current)
-      intervalRef.current = null
-    }
-  }
-
-  const resumeTimer = () => {
-    setTimerState('running')
-    if (!queuePinned) {
-      setQueueExpanded(false)
-    }
-  }
-
-  const stopSession = () => {
-    if (intervalRef.current) {
-      clearInterval(intervalRef.current)
-      intervalRef.current = null
-    }
-    setTimerState('idle')
-    setSelectedTask(null)
-    setTimeRemaining(0)
-    setTotalTime(0)
-    setActiveSessionMinutes(null)
-    setHasCheckedIn(false)
-    setCheckInMessage('')
-    setQueueExpanded(true)
-    setMarkCompletedBefore(false)
-    setTimeAdjustments({})
   }
 
   const updateAdjustments = (taskId, deltaAdded = 0, deltaSaved = 0) => {
@@ -368,97 +318,37 @@ export default function Focus() {
   const confirmStopSession = () => {
     if (confirm('End this focus session?')) {
       stopSession()
+      setQueueExpanded(true)
+      setTimeAdjustments({})
     }
   }
 
-  const startBreak = () => {
-    if (intervalRef.current) {
-      clearInterval(intervalRef.current)
-      intervalRef.current = null
-    }
-    setBreakTimeRemaining(focusSettings.breakDuration * 60)
-    setBreakPaused(false)
-    setMarkCompletedBefore(false)
-    setTimerState('break')
-  }
-
-  const skipBreak = () => {
-    setTimerState('idle')
-    setSelectedTask(null)
-    setTimeRemaining(0)
-    setTotalTime(0)
-    setBreakTimeRemaining(0)
-    setBreakPaused(false)
-  }
-
-  const pauseBreak = () => {
-    setBreakPaused(true)
-    if (intervalRef.current) {
-      clearInterval(intervalRef.current)
-      intervalRef.current = null
+  const handlePauseTimer = () => {
+    pauseTimer()
+    setQueueExpanded(true)
+    if (queueCollapseTimeoutRef.current) {
+      clearTimeout(queueCollapseTimeoutRef.current)
     }
   }
 
-  const resumeBreak = () => {
-    setBreakPaused(false)
-  }
-
-  const endBreakAndShowOptions = () => {
-    setBreakTimeRemaining(0)
-    setBreakPaused(true)
+  const handleResumeTimer = () => {
+    resumeTimer()
+    if (!queuePinned) {
+      setQueueExpanded(false)
+    }
   }
 
   const continueToNextTaskAfterBreak = () => {
     const nextIndex = currentQueueIndex + 1
     if (nextIndex < queue.length) {
-      setBreakTimeRemaining(0)
-      setBreakPaused(false)
+      skipBreak()
       startFocusSessionFromQueue(nextIndex)
     }
   }
 
-  const endSessionAfterBreak = () => {
-    setTimerState('idle')
-    setSelectedTask(null)
-    setTimeRemaining(0)
-    setTotalTime(0)
-    setBreakTimeRemaining(0)
-    setBreakPaused(false)
+  const handleEndSessionAfterBreak = () => {
+    endSessionAfterBreak()
   }
-
-  useEffect(() => {
-    if (timerState === 'running') {
-      intervalRef.current = setInterval(() => {
-        setTimeRemaining((prev) => {
-          if (prev <= 1) {
-            clearInterval(intervalRef.current)
-            intervalRef.current = null
-            setTimerState('completed')
-            return 0
-          }
-
-          const newTime = prev - 1
-          const halfwayPoint = totalTime / 2
-
-          if (!hasCheckedIn && totalTime >= 20 * 60 && newTime <= halfwayPoint && prev > halfwayPoint) {
-            setHasCheckedIn(true)
-            setTimerState('paused')
-            setCheckInMessage('Halfway there! How are you progressing?')
-            setQueueExpanded(true)
-          }
-
-          return newTime
-        })
-      }, 1000)
-
-      return () => {
-        if (intervalRef.current) {
-          clearInterval(intervalRef.current)
-          intervalRef.current = null
-        }
-      }
-    }
-  }, [timerState, totalTime, hasCheckedIn])
 
   useEffect(() => {
     if (queuePinned) {
@@ -473,6 +363,13 @@ export default function Focus() {
       setQueueExpanded(true)
     }
   }, [timerState])
+
+  // Update queue expanded when checkin message appears
+  useEffect(() => {
+    if (checkInMessage) {
+      setQueueExpanded(true)
+    }
+  }, [checkInMessage])
 
   useEffect(() => {
     if (queueHoverRef.current && !queuePinned && timerState === 'running') {
@@ -505,30 +402,6 @@ export default function Focus() {
     }
   }, [queuePinned, timerState])
 
-  useEffect(() => {
-    if (timerState === 'break' && !breakPaused) {
-      intervalRef.current = setInterval(() => {
-        setBreakTimeRemaining((prev) => {
-          if (prev <= 1) {
-            clearInterval(intervalRef.current)
-            intervalRef.current = null
-            setBreakTimeRemaining(0)
-            setBreakPaused(true)
-            return 0
-          }
-          return prev - 1
-        })
-      }, 1000)
-
-      return () => {
-        if (intervalRef.current) {
-          clearInterval(intervalRef.current)
-          intervalRef.current = null
-        }
-      }
-    }
-  }, [timerState, breakPaused])
-
   const handleMarkTaskComplete = () => {
     if (!selectedTask) return
     const saved = localStorage.getItem('smartplan.tasks')
@@ -548,7 +421,7 @@ export default function Focus() {
         }))
 
         if (timerState === 'completed') {
-          setMarkCompletedBefore(!isCurrentlyCompleted)
+          updateMarkCompletedBefore(!isCurrentlyCompleted)
         }
         // Don't reset to idle - stay in current state
       } catch {}
@@ -685,12 +558,7 @@ export default function Focus() {
 
     updateAdjustments(taskId, minutes, 0)
 
-    setTimeRemaining(minutes * 60)
-    setTotalTime(minutes * 60)
-    setActiveSessionMinutes(minutes)
-    setTimerState('running')
-    setHasCheckedIn(false)
-    setMarkCompletedBefore(false)
+    startSession({ ...selectedTask, timeAllocated: minutes }, currentQueueIndex, queue.length)
   }
 
   const formatTime = (seconds) => {
@@ -700,8 +568,8 @@ export default function Focus() {
   }
 
   const continueFromCheckIn = () => {
-    setCheckInMessage('')
-    setTimerState('running')
+    updateCheckInMessage('')
+    resumeTimer()
   }
 
   const formatTarget = (target) => {
@@ -766,7 +634,8 @@ export default function Focus() {
 
     setQueue(newQueue)
     saveQueueToLocalStorage(newQueue)
-    setCurrentQueueIndex(newCurrentIndex === -1 ? 0 : newCurrentIndex)
+    const adjustedIndex = newCurrentIndex === -1 ? 0 : newCurrentIndex
+    updateCurrentQueueIndex(adjustedIndex)
   }
 
   const moveQueueItem = (index, direction) => {
@@ -795,13 +664,14 @@ export default function Focus() {
 
     setQueue(newQueue)
     saveQueueToLocalStorage(newQueue)
-    setCurrentQueueIndex(newCurrentIndex === -1 ? 0 : newCurrentIndex)
+    const adjustedIndex = newCurrentIndex === -1 ? 0 : newCurrentIndex
+    updateCurrentQueueIndex(adjustedIndex)
   }
 
   const clearQueue = () => {
     if (queueLocked) return
     setQueue([])
-    setCurrentQueueIndex(0)
+    updateCurrentQueueIndex(0)
     saveQueueToLocalStorage([])
   }
 
@@ -1029,12 +899,12 @@ export default function Focus() {
 
                 <div className="actions" style={{ justifyContent: 'center' }}>
                   {timerState === 'running' && !checkInMessage && (
-                    <button className="action ghost" onClick={pauseTimer}>
+                    <button className="action ghost" onClick={handlePauseTimer}>
                       Pause
                     </button>
                   )}
                   {timerState === 'paused' && !checkInMessage && (
-                    <button className="action primary" onClick={resumeTimer}>
+                    <button className="action primary" onClick={handleResumeTimer}>
                       Resume
                     </button>
                   )}
@@ -1188,7 +1058,7 @@ export default function Focus() {
                     <button className="action primary" onClick={continueToNextTaskAfterBreak}>
                       Next Task
                     </button>
-                    <button className="action danger" onClick={endSessionAfterBreak}>
+                    <button className="action danger" onClick={handleEndSessionAfterBreak}>
                       End Session
                     </button>
                   </div>

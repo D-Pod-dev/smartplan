@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Routes, Route, useLocation } from 'react-router-dom'
 import './App.css'
 import Sidebar from './components/Sidebar.jsx'
+import FloatingTimer from './components/FloatingTimer.jsx'
 import Today from './pages/Today.jsx'
 import Tasks from './pages/Tasks.jsx'
 import SmartPlan from './pages/SmartPlan.jsx'
@@ -13,6 +14,7 @@ import Focus from './pages/Focus.jsx'
 import { setDebugDate, getDebugDate } from './utils/dateUtils.js'
 import { useSupabaseTags } from './hooks/useSupabaseTags'
 import { useSupabaseGoals } from './hooks/useSupabaseGoals'
+import { FocusTimerProvider } from './contexts/FocusTimerContext.jsx'
 
 // Routed layout shell for pages
 
@@ -174,71 +176,75 @@ function App() {
   }
 
   return (
-    <div className="app-shell">
-      <button
-        className="sidebar-toggle"
-        type="button"
-        aria-expanded={isSidebarOpen}
-        aria-controls="app-sidebar"
-        onClick={() => setIsSidebarOpen((open) => !open)}
-      >
-        {isSidebarOpen ? 'Close' : 'Menu'}
-      </button>
+    <FocusTimerProvider>
+      <div className="app-shell">
+        <button
+          className="sidebar-toggle"
+          type="button"
+          aria-expanded={isSidebarOpen}
+          aria-controls="app-sidebar"
+          onClick={() => setIsSidebarOpen((open) => !open)}
+        >
+          {isSidebarOpen ? 'Close' : 'Menu'}
+        </button>
 
-      <Sidebar isOpen={isSidebarOpen} onClose={closeSidebar} devPanelEnabled={devPanelEnabled} devPanelInSidebar={devPanelInSidebar} debugDate={debugDate} onDateChange={handleDateChange} currentPath={location.pathname} timerOverrideTime={timerOverrideTime} onTimerOverride={handleTimerOverride} timerState={timerState} />
+        <Sidebar isOpen={isSidebarOpen} onClose={closeSidebar} devPanelEnabled={devPanelEnabled} devPanelInSidebar={devPanelInSidebar} debugDate={debugDate} onDateChange={handleDateChange} currentPath={location.pathname} timerOverrideTime={timerOverrideTime} onTimerOverride={handleTimerOverride} timerState={timerState} />
 
-      {isSidebarOpen && (
-        <div
-          className="sidebar-overlay"
-          aria-label="Close sidebar"
-          role="button"
-          tabIndex={0}
-          onClick={closeSidebar}
-          onKeyDown={handleOverlayKeyDown}
-        />
-      )}
+        <FloatingTimer />
 
-      <main className="page">
-        {devPanelInNav && (
-          <div className="dev-panel-nav">
-            <div className="dev-panel-nav-content">
-              <span className="dev-panel-nav-label">Debug Date:</span>
-              <input 
-                type="date" 
-                value={debugDate || (() => {
-                  const today = new Date()
-                  const year = today.getFullYear()
-                  const month = String(today.getMonth() + 1).padStart(2, '0')
-                  const day = String(today.getDate()).padStart(2, '0')
-                  return `${year}-${month}-${day}`
-                })()}
-                onChange={(e) => handleDateChange(e.target.value)}
-                className="dev-panel-nav-input"
-              />
-              <button 
-                onClick={() => handleDateChange(null)}
-                className="dev-panel-nav-button"
-              >
-                Reset
-              </button>
-              <span className="dev-panel-nav-status">
-                {debugDate ? '🟢 Override Active' : '⚪ System Date'}
-              </span>
-            </div>
-          </div>
+        {isSidebarOpen && (
+          <div
+            className="sidebar-overlay"
+            aria-label="Close sidebar"
+            role="button"
+            tabIndex={0}
+            onClick={closeSidebar}
+            onKeyDown={handleOverlayKeyDown}
+          />
         )}
-        <Routes>
-          <Route path="/" element={<Today tags={tags} goals={goals} setGoals={setGoals} onAddTag={addTagToPool} onRenameTag={renameTag} onDeleteTag={deleteTag} onRegisterDeleteTasksByGoalId={setDeleteTasksByGoalId} />} />
-          <Route path="/tasks" element={<Tasks tags={tags} goals={goals} setGoals={setGoals} onAddTag={addTagToPool} onRenameTag={renameTag} onDeleteTag={deleteTag} onRegisterDeleteTasksByGoalId={setDeleteTasksByGoalId} />} />
-          <Route path="/goals" element={<Goals tags={tags} goals={goals} setGoals={setGoals} onAddTag={addTagToPool} onRenameTag={renameTag} onDeleteTag={deleteTag} onDeleteTasksByGoalId={deleteTasksByGoalId} />} />
-          <Route path="/chat" element={<SmartPlan />} />
-          <Route path="/focus" element={<Focus />} />
-          <Route path="/insights" element={<Insights />} />
-          <Route path="/settings" element={<Settings devPanelEnabled={devPanelEnabled} onToggleDevPanel={handleToggleDevPanel} devPanelInNav={devPanelInNav} onToggleDevPanelInNav={handleToggleDevPanelInNav} devPanelInSidebar={devPanelInSidebar} onToggleDevPanelInSidebar={handleToggleDevPanelInSidebar} />} />
-          <Route path="/dev" element={<DevPanel currentDate={debugDate} onDateChange={handleDateChange} />} />
-        </Routes>
-      </main>
-    </div>
+
+        <main className="page">
+          {devPanelInNav && (
+            <div className="dev-panel-nav">
+              <div className="dev-panel-nav-content">
+                <span className="dev-panel-nav-label">Debug Date:</span>
+                <input 
+                  type="date" 
+                  value={debugDate || (() => {
+                    const today = new Date()
+                    const year = today.getFullYear()
+                    const month = String(today.getMonth() + 1).padStart(2, '0')
+                    const day = String(today.getDate()).padStart(2, '0')
+                    return `${year}-${month}-${day}`
+                  })()}
+                  onChange={(e) => handleDateChange(e.target.value)}
+                  className="dev-panel-nav-input"
+                />
+                <button 
+                  onClick={() => handleDateChange(null)}
+                  className="dev-panel-nav-button"
+                >
+                  Reset
+                </button>
+                <span className="dev-panel-nav-status">
+                  {debugDate ? '🟢 Override Active' : '⚪ System Date'}
+                </span>
+              </div>
+            </div>
+          )}
+          <Routes>
+            <Route path="/" element={<Today tags={tags} goals={goals} setGoals={setGoals} onAddTag={addTagToPool} onRenameTag={renameTag} onDeleteTag={deleteTag} onRegisterDeleteTasksByGoalId={setDeleteTasksByGoalId} />} />
+            <Route path="/tasks" element={<Tasks tags={tags} goals={goals} setGoals={setGoals} onAddTag={addTagToPool} onRenameTag={renameTag} onDeleteTag={deleteTag} onRegisterDeleteTasksByGoalId={setDeleteTasksByGoalId} />} />
+            <Route path="/goals" element={<Goals tags={tags} goals={goals} setGoals={setGoals} onAddTag={addTagToPool} onRenameTag={renameTag} onDeleteTag={deleteTag} onDeleteTasksByGoalId={deleteTasksByGoalId} />} />
+            <Route path="/chat" element={<SmartPlan />} />
+            <Route path="/focus" element={<Focus />} />
+            <Route path="/insights" element={<Insights />} />
+            <Route path="/settings" element={<Settings devPanelEnabled={devPanelEnabled} onToggleDevPanel={handleToggleDevPanel} devPanelInNav={devPanelInNav} onToggleDevPanelInNav={handleToggleDevPanelInNav} devPanelInSidebar={devPanelInSidebar} onToggleDevPanelInSidebar={handleToggleDevPanelInSidebar} />} />
+            <Route path="/dev" element={<DevPanel currentDate={debugDate} onDateChange={handleDateChange} />} />
+          </Routes>
+        </main>
+      </div>
+    </FocusTimerProvider>
   )
 }
 
