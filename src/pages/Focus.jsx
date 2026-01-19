@@ -353,6 +353,8 @@ export default function Focus() {
   useEffect(() => {
     if (queuePinned) {
       setQueueExpanded(true)
+    } else if (timerState === 'paused') {
+      setQueueExpanded(true)
     } else if (timerState === 'running') {
       setQueueExpanded(false)
     }
@@ -384,7 +386,10 @@ export default function Focus() {
         if (queueCollapseTimeoutRef.current) {
           clearTimeout(queueCollapseTimeoutRef.current)
         }
-        setQueueExpanded(false)
+        // Only collapse while actively running and not pinned
+        if (timerState === 'running' && !queuePinned) {
+          setQueueExpanded(false)
+        }
       }
 
       queueHoverRef.current.addEventListener('mouseenter', handleMouseEnter)
