@@ -86,6 +86,39 @@ export const FocusTimerProvider = ({ children }) => {
   const [markCompletedBefore, setMarkCompletedBefore] = useState(() => loadTimerStateFromStorage().markCompletedBefore)
   
   const intervalRef = useRef(null)
+  const prevTimerStateRef = useRef(timerState)
+  const prevBreakTimeRef = useRef(breakTimeRemaining)
+
+  // Notification helpers
+  const ensureNotificationPermission = async () => {
+    if (typeof window === 'undefined') return
+    if (!('Notification' in window)) return
+    
+    // Check if we've already prompted in this session
+    const hasPromptedThisSession = sessionStorage.getItem('smartplan.notificationPrompted') === 'true'
+    
+    // Only prompt if permission is default (not already granted or denied)
+    if (!hasPromptedThisSession && Notification.permission === 'default') {
+      try {
+        sessionStorage.setItem('smartplan.notificationPrompted', 'true')
+        await Notification.requestPermission()
+      } catch {}
+    }
+  }
+
+  const sendNotification = (title, body) => {
+    if (typeof window === 'undefined') return
+    if (!('Notification' in window)) return
+    if (Notification.permission !== 'granted') return
+    
+    // Check if user has notifications enabled
+    const notificationsEnabled = localStorage.getItem('smartplan.notificationsEnabled')
+    if (notificationsEnabled === 'false') return
+    
+    try {
+      new Notification(title, { body })
+    } catch {}
+  }
 
   // Save timer state to localStorage whenever it changes
   useEffect(() => {
@@ -108,6 +141,16 @@ export const FocusTimerProvider = ({ children }) => {
   useEffect(() => {
     window.dispatchEvent(new CustomEvent('focusTimerStateUpdate', { detail: { timerState } }))
   }, [timerState])
+
+  // Fire notification when focus session completes
+  useEffect(() => {
+    const prev = prevTimerStateRef.current
+    if (prev !== 'completed' && timerState === 'completed') {
+      const taskTitle = selectedTask?.title || 'Focus session'
+      sendNotification('Time’s up!', `${taskTitle} finished. Nice work!`)
+    }
+    prevTimerStateRef.current = timerState
+  }, [timerState, selectedTask])
 
   // Main timer countdown effect - runs globally regardless of page
   useEffect(() => {
@@ -168,6 +211,17 @@ export const FocusTimerProvider = ({ children }) => {
     }
   }, [timerState, breakPaused])
 
+  // Fire notification when break completes
+  useEffect(() => {
+    if (timerState === 'break') {
+      const prevBreak = prevBreakTimeRef.current
+      if (prevBreak > 0 && breakTimeRemaining === 0 && breakPaused) {
+        sendNotification('Break finished', 'Ready to get back to it?')
+      }
+      prevBreakTimeRef.current = breakTimeRemaining
+    }
+  }, [timerState, breakTimeRemaining, breakPaused])
+
   // Listen for focus timer override events
   useEffect(() => {
     const handleTimerOverride = (event) => {
@@ -187,6 +241,7 @@ export const FocusTimerProvider = ({ children }) => {
   }, [timerState])
 
   const startSession = (task, index, queueLength) => {
+    ensureNotificationPermission()
     setCurrentQueueIndex(index)
     setSelectedTask(task)
     const timeInSeconds = task.timeAllocated * 60

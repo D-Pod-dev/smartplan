@@ -66,6 +66,20 @@ export default function Settings({ devPanelEnabled, onToggleDevPanel, devPanelIn
   const [taskCount, setTaskCount] = useState(() => getStoredTaskCount())
   const [dataFlash, setDataFlash] = useState(null)
   const dataFlashTimer = useRef(null)
+  const [notificationPermission, setNotificationPermission] = useState(() => {
+    if (typeof window !== 'undefined' && 'Notification' in window) {
+      return Notification.permission
+    }
+    return 'default'
+  })
+  const [notificationBusy, setNotificationBusy] = useState(false)
+  const [notificationsEnabled, setNotificationsEnabled] = useState(() => {
+    if (typeof localStorage !== 'undefined') {
+      const saved = localStorage.getItem('smartplan.notificationsEnabled')
+      return saved === null ? true : saved === 'true'
+    }
+    return true
+  })
 
   const buildSeedTasks = () => {
     const todayIso = getCurrentDate().toISOString().split('T')[0]
@@ -368,6 +382,29 @@ export default function Settings({ devPanelEnabled, onToggleDevPanel, devPanelIn
     }
   }, [])
 
+  const handleRequestNotificationPermission = async () => {
+    if (typeof window === 'undefined' || !('Notification' in window)) return
+    setNotificationBusy(true)
+    try {
+      const permission = await Notification.requestPermission()
+      setNotificationPermission(permission)
+      if (permission === 'granted') {
+        new Notification('Notifications enabled!', { body: 'You will receive notifications when timers finish.' })
+      }
+    } catch (err) {
+      console.error('Error requesting notification permission:', err)
+    } finally {
+      setNotificationBusy(false)
+    }
+  }
+
+  const handleToggleNotifications = (enabled) => {
+    setNotificationsEnabled(enabled)
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem('smartplan.notificationsEnabled', enabled ? 'true' : 'false')
+    }
+  }
+
   return (
     <>
       <header className="page__header">
@@ -506,6 +543,41 @@ export default function Settings({ devPanelEnabled, onToggleDevPanel, devPanelIn
           <p className="panel__copy">Theme, notifications, and default durations.</p>
           
           <div style={{ marginTop: '1.5rem' }}>
+            <h3 style={{ fontSize: '1rem', fontWeight: 500, marginBottom: '1rem', color: 'var(--heading)' }}>Notifications</h3>
+            
+            <div className="setting-toggle-row" style={{ marginBottom: '1.5rem' }}>
+              <span className="setting-toggle-label">Enable notifications</span>
+              <label className="toggle-switch">
+                <input 
+                  type="checkbox" 
+                  checked={notificationsEnabled}
+                  onChange={(e) => handleToggleNotifications(e.target.checked)}
+                />
+                <span className="toggle-slider"></span>
+              </label>
+            </div>
+
+            {notificationsEnabled && (
+              <div style={{ marginBottom: '1.5rem' }}>
+                <p className="panel__copy" style={{ marginBottom: '0.75rem', fontSize: '0.95rem' }}>
+                  Allow your browser to send alerts when timers finish.
+                </p>
+                <button
+                  type="button"
+                  className="action"
+                  onClick={handleRequestNotificationPermission}
+                  disabled={notificationBusy || notificationPermission === 'granted' || notificationPermission === 'denied'}
+                >
+                  {notificationBusy ? 'Requesting...' : notificationPermission === 'granted' ? '✓ Notifications allowed' : notificationPermission === 'denied' ? '✗ Notifications blocked' : 'Allow notifications'}
+                </button>
+                {notificationPermission === 'denied' && (
+                  <p className="panel__copy" style={{ marginTop: '0.5rem', fontSize: '0.9rem', opacity: 0.75 }}>
+                    Notifications are blocked in your browser settings. You can enable them in your browser preferences.
+                  </p>
+                )}
+              </div>
+            )}
+
             <h3 style={{ fontSize: '1rem', fontWeight: 500, marginBottom: '1rem', color: 'var(--heading)' }}>Focus Settings</h3>
             
             <div className="todo-field" style={{ marginBottom: '1rem' }}>
