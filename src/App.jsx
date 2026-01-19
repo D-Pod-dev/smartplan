@@ -84,7 +84,19 @@ function App() {
   const [devPanelInSidebar, setDevPanelInSidebar] = useState(devPanelSettings.inSidebar)
   const [debugDate, setDebugDateState] = useState(() => getDebugDate())
   const [timerOverrideTime, setTimerOverrideTime] = useState(null)
-  const [timerState, setTimerState] = useState('idle')
+  const [timerState, setTimerState] = useState(() => {
+    // Load timer state from localStorage on initial render
+    if (typeof localStorage !== 'undefined') {
+      const saved = localStorage.getItem('smartplan.focusTimer')
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved)
+          return parsed.timerState || 'idle'
+        } catch {}
+      }
+    }
+    return 'idle'
+  })
 
   // Sync tags and goals with Supabase
   const { syncStatus: tagsSyncStatus } = useSupabaseTags(tags)
