@@ -18,6 +18,8 @@ const footerNavItems = [
 export default function Sidebar({ isOpen, onClose, devPanelEnabled, devPanelInSidebar, debugDate, onDateChange, currentPath, timerOverrideTime, onTimerOverride, timerState }) {
   const navigate = useNavigate()
   const [timerInput, setTimerInput] = useState('00:00')
+  const [dateCollapsed, setDateCollapsed] = useState(true)
+  const [timerCollapsed, setTimerCollapsed] = useState(true)
   
   const isOnFocusPage = currentPath === '/focus'
   const isTimerRunning = timerState === 'running'
@@ -84,61 +86,85 @@ export default function Sidebar({ isOpen, onClose, devPanelEnabled, devPanelInSi
         {devPanelInSidebar && (
           <div className="sidebar-dev-panel">
             <div className="sidebar-dev-panel-title">Dev Panel</div>
-            <div className="sidebar-dev-panel-controls">
-              <label className="sidebar-dev-panel-label">
-                <span>Debug Date</span>
-                <input 
-                  type="date" 
-                  value={debugDate || (() => {
-                    const today = new Date()
-                    const year = today.getFullYear()
-                    const month = String(today.getMonth() + 1).padStart(2, '0')
-                    const day = String(today.getDate()).padStart(2, '0')
-                    return `${year}-${month}-${day}`
-                  })()}
-                  onChange={(e) => onDateChange(e.target.value)}
-                  className="sidebar-dev-panel-input"
-                />
-              </label>
+            
+            {/* Debug Date Section */}
+            <div className="sidebar-dev-panel-section">
               <button 
-                onClick={() => onDateChange(null)}
-                className="sidebar-dev-panel-button"
+                className="sidebar-dev-panel-section-header"
+                onClick={() => setDateCollapsed(!dateCollapsed)}
+                type="button"
               >
-                Reset
+                <span>Debug Date</span>
+                <span className="sidebar-dev-panel-toggle">{dateCollapsed ? '▼' : '▲'}</span>
               </button>
-              <div className="sidebar-dev-panel-status">
-                {debugDate ? '🟢 Override Active' : '⚪ System Date'}
-              </div>
-            </div>
-            {isOnFocusPage && isTimerRunning && (
-              <div className="sidebar-dev-panel-controls" style={{ marginTop: '12px', paddingTop: '12px', borderTop: '1px solid rgba(0,0,0,0.1)' }}>
-                <div style={{ fontSize: '0.85rem', fontWeight: '500', marginBottom: '8px' }}>Focus Timer Override</div>
-                <label className="sidebar-dev-panel-label">
-                  <span>Time (MM:SS)</span>
+              {!dateCollapsed && (
+                <div className="sidebar-dev-panel-controls">
                   <input 
-                    type="text" 
-                    value={timerInput}
-                    onChange={handleTimerInputChange}
-                    placeholder="05:30"
+                    type="date" 
+                    value={debugDate || (() => {
+                      const today = new Date()
+                      const year = today.getFullYear()
+                      const month = String(today.getMonth() + 1).padStart(2, '0')
+                      const day = String(today.getDate()).padStart(2, '0')
+                      return `${year}-${month}-${day}`
+                    })()}
+                    onChange={(e) => onDateChange(e.target.value)}
                     className="sidebar-dev-panel-input"
                   />
-                </label>
-                <button 
-                  onClick={handleApplyTimerOverride}
-                  className="sidebar-dev-panel-button"
-                  style={{ backgroundColor: '#4CAF50', color: 'white' }}
-                >
-                  Apply Override
-                </button>
-                <button 
-                  onClick={handleResetTimerOverride}
-                  className="sidebar-dev-panel-button"
-                >
-                  Reset Timer
-                </button>
-                <div className="sidebar-dev-panel-status">
-                  {timerOverrideTime !== null ? `🟢 Override: ${Math.floor(timerOverrideTime / 60)}:${(timerOverrideTime % 60).toString().padStart(2, '0')}` : '⚪ No Override'}
+                  <button 
+                    onClick={() => onDateChange(null)}
+                    className="sidebar-dev-panel-button"
+                  >
+                    Reset
+                  </button>
+                  <div className="sidebar-dev-panel-status">
+                    {debugDate ? '🟢 Override Active' : '⚪ System Date'}
+                  </div>
                 </div>
+              )}
+            </div>
+            
+            {/* Focus Timer Override Section */}
+            {isOnFocusPage && isTimerRunning && (
+              <div className="sidebar-dev-panel-section">
+                <button 
+                  className="sidebar-dev-panel-section-header"
+                  onClick={() => setTimerCollapsed(!timerCollapsed)}
+                  type="button"
+                >
+                  <span>Focus Timer Override</span>
+                  <span className="sidebar-dev-panel-toggle">{timerCollapsed ? '▼' : '▲'}</span>
+                </button>
+                {!timerCollapsed && (
+                  <div className="sidebar-dev-panel-controls">
+                    <label className="sidebar-dev-panel-label">
+                      <span>Time (MM:SS)</span>
+                      <input 
+                        type="text" 
+                        value={timerInput}
+                        onChange={handleTimerInputChange}
+                        placeholder="05:30"
+                        className="sidebar-dev-panel-input"
+                      />
+                    </label>
+                    <button 
+                      onClick={handleApplyTimerOverride}
+                      className="sidebar-dev-panel-button"
+                      style={{ backgroundColor: '#4CAF50', color: 'white' }}
+                    >
+                      Apply Override
+                    </button>
+                    <button 
+                      onClick={handleResetTimerOverride}
+                      className="sidebar-dev-panel-button"
+                    >
+                      Reset Timer
+                    </button>
+                    <div className="sidebar-dev-panel-status">
+                      {timerOverrideTime !== null ? `🟢 Override: ${Math.floor(timerOverrideTime / 60)}:${(timerOverrideTime % 60).toString().padStart(2, '0')}` : '⚪ No Override'}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </div>
