@@ -319,6 +319,33 @@ export default function Settings({ devPanelEnabled, onToggleDevPanel, devPanelIn
     }
   }
 
+  const clearAllData = async () => {
+    const confirmed = window.confirm('Delete ALL data including tasks, tags, settings, and conversations? This cannot be undone.')
+    if (!confirmed) return
+    
+    // Clear all localStorage data
+    localStorage.setItem('smartplan.tasks', JSON.stringify([]))
+    localStorage.setItem('smartplan.tags', JSON.stringify([]))
+    localStorage.setItem('smartplan.settings.focus', JSON.stringify({ workDuration: 25, breakDuration: 5, enableBreaks: true }))
+    
+    setTaskCount(0)
+    setFocusSettings({ workDuration: 25, breakDuration: 5, enableBreaks: true })
+    triggerDataFlash('clear')
+    
+    // Also clear from Supabase if logged in
+    if (user && supabase) {
+      try {
+        await supabase.from('tasks').delete().eq('user_id', user.id)
+        await supabase.from('conversations').delete().eq('user_id', user.id)
+        await supabase.from('goals').delete().eq('user_id', user.id)
+        await supabase.from('insights').delete().eq('user_id', user.id)
+        console.log('[Settings] Cleared all data from Supabase')
+      } catch (err) {
+        console.error('[Settings] Failed to clear Supabase data:', err)
+      }
+    }
+  }
+
   const triggerDataFlash = (type) => {
     if (dataFlashTimer.current) {
       clearTimeout(dataFlashTimer.current)
@@ -556,6 +583,14 @@ export default function Settings({ devPanelEnabled, onToggleDevPanel, devPanelIn
           <p className="panel__copy" style={{ marginTop: '0.8rem', fontSize: '0.9rem', opacity: 0.75 }}>
             Loading seeds overwrites your current tasks. Clearing tasks requires confirmation.
           </p>
+          <div style={{ marginTop: '1.5rem' }}>
+            <button className="action" type="button" onClick={clearAllData} style={{ borderColor: 'rgba(200, 50, 50, 0.5)' }}>
+              Clear all data
+            </button>
+            <p className="panel__copy" style={{ marginTop: '0.5rem', fontSize: '0.9rem', opacity: 0.75 }}>
+              This will permanently delete all tasks and settings. This cannot be undone.
+            </p>
+          </div>
         </div>
         <div className="panel">
           <div className="panel__title">Developer</div>
@@ -576,22 +611,6 @@ export default function Settings({ devPanelEnabled, onToggleDevPanel, devPanelIn
               <p className="panel__copy" style={{ marginTop: '0.5rem', fontSize: '0.875rem', opacity: 0.7 }}>
                 Dev Panel is now available in the sidebar navigation.
               </p>
-              <div className="setting-toggle-row" style={{ marginTop: '1rem' }}>
-                <span className="setting-toggle-label">Show in navigation bar</span>
-                <label className="toggle-switch">
-                  <input 
-                    type="checkbox" 
-                    checked={localDevInNav}
-                    onChange={handleToggleInNav}
-                  />
-                  <span className="toggle-slider"></span>
-                </label>
-              </div>
-              {localDevInNav && (
-                <p className="panel__copy" style={{ marginTop: '0.5rem', fontSize: '0.875rem', opacity: 0.7 }}>
-                  Dev panel controls are now visible on all pages.
-                </p>
-              )}
               <div className="setting-toggle-row" style={{ marginTop: '1rem' }}>
                 <span className="setting-toggle-label">Show in sidebar</span>
                 <label className="toggle-switch">
