@@ -122,19 +122,58 @@ const saveQueueToLocalStorage = (queue) => {
   }
 }
 
+const deriveQueuePinnedFromLocalStorage = () => {
+  if (typeof localStorage !== 'undefined') {
+    const saved = localStorage.getItem('smartplan.queuePinned')
+    if (saved !== null) {
+      try {
+        return JSON.parse(saved)
+      } catch {}
+    }
+  }
+  return false
+}
+
+const saveQueuePinnedToLocalStorage = (pinned) => {
+  if (typeof localStorage !== 'undefined') {
+    localStorage.setItem('smartplan.queuePinned', JSON.stringify(pinned))
+  }
+}
+
+const deriveTimeAdjustmentsFromLocalStorage = () => {
+  if (typeof localStorage !== 'undefined') {
+    const saved = localStorage.getItem('smartplan.timeAdjustments')
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved)
+        if (typeof parsed === 'object' && parsed !== null) {
+          return parsed
+        }
+      } catch {}
+    }
+  }
+  return {}
+}
+
+const saveTimeAdjustmentsToLocalStorage = (adjustments) => {
+  if (typeof localStorage !== 'undefined') {
+    localStorage.setItem('smartplan.timeAdjustments', JSON.stringify(adjustments))
+  }
+}
+
 export default function Focus() {
   const navigate = useNavigate()
   const [focusSettings] = useState(() => deriveFocusSettings())
   const [tasks, setTasks] = useState(() => deriveTasksFromLocalStorage())
   const [queue, setQueue] = useState(() => deriveQueueFromLocalStorage())
   const [queueExpanded, setQueueExpanded] = useState(true)
-  const [queuePinned, setQueuePinned] = useState(false)
+  const [queuePinned, setQueuePinned] = useState(() => deriveQueuePinnedFromLocalStorage())
   const [showSkipModal, setShowSkipModal] = useState(false)
   const [taskCompletedMap, setTaskCompletedMap] = useState(() => deriveTaskCompletionMap())
   const [skipModalChoice, setSkipModalChoice] = useState(null)
   const [skipModalAction, setSkipModalAction] = useState(null)
   const [cumulativeTime, setCumulativeTime] = useState({})
-  const [timeAdjustments, setTimeAdjustments] = useState({})
+  const [timeAdjustments, setTimeAdjustments] = useState(() => deriveTimeAdjustmentsFromLocalStorage())
   const [customSessionMinutes, setCustomSessionMinutes] = useState(5)
   const [sortOption, setSortOption] = useState('default')
   const [sortDirection, setSortDirection] = useState('asc')
@@ -305,13 +344,15 @@ export default function Focus() {
     if (!taskId) return
     setTimeAdjustments((prev) => {
       const current = prev[taskId] || { added: 0, saved: 0 }
-      return {
+      const newAdjustments = {
         ...prev,
         [taskId]: {
           added: Math.max(0, current.added + deltaAdded),
           saved: Math.max(0, current.saved + deltaSaved),
         },
       }
+      saveTimeAdjustmentsToLocalStorage(newAdjustments)
+      return newAdjustments
     })
   }
 
@@ -319,7 +360,9 @@ export default function Focus() {
     if (confirm('End this focus session?')) {
       stopSession()
       setQueueExpanded(true)
-      setTimeAdjustments({})
+      const emptyAdjustments = {}
+      setTimeAdjustments(emptyAdjustments)
+      saveTimeAdjustmentsToLocalStorage(emptyAdjustments)
     }
   }
 
@@ -714,7 +757,11 @@ export default function Focus() {
           queueExpanded={queueExpanded}
           queueLocked={queueLocked}
           queuePinned={queuePinned}
-          onTogglePin={() => setQueuePinned(!queuePinned)}
+          onTogglePin={() => {
+            const newPinned = !queuePinned
+            setQueuePinned(newPinned)
+            saveQueuePinnedToLocalStorage(newPinned)
+          }}
           onClearQueue={clearQueue}
           queueHoverRef={queueHoverRef}
           onStartItem={startQueueItem}
