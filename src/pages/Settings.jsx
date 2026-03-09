@@ -354,7 +354,10 @@ export default function Settings({ devPanelEnabled, onToggleDevPanel, devPanelIn
         await supabase.from('tasks').delete().eq('user_id', user.id)
         await supabase.from('conversations').delete().eq('user_id', user.id)
         await supabase.from('goals').delete().eq('user_id', user.id)
-        await supabase.from('insights').delete().eq('user_id', user.id)
+        await supabase.from('user_settings').delete().eq('user_id', user.id)
+        await supabase.from('user_tags').delete().eq('user_id', user.id)
+        await supabase.from('focus_queue').delete().eq('user_id', user.id)
+        await supabase.from('user_insights').delete().eq('user_id', user.id)
         console.log('[Settings] Cleared all data from Supabase')
       } catch (err) {
         console.error('[Settings] Failed to clear Supabase data:', err)

@@ -1,4 +1,5 @@
 -- SmartPlan Supabase Database Schema
+-- Last updated: 2026-03-08
 -- ============================================
 -- CONVERSATIONS TABLE
 -- ============================================
@@ -172,13 +173,6 @@ CREATE POLICY "tasks_user_policy"
   USING ((select auth.uid()) = user_id)
   WITH CHECK ((select auth.uid()) = user_id);
 
--- Trigger for auto-updating updated_at on tasks
-DROP TRIGGER IF EXISTS update_tasks_updated_at ON tasks;
-CREATE TRIGGER update_tasks_updated_at
-  BEFORE UPDATE ON tasks
-  FOR EACH ROW
-  EXECUTE FUNCTION update_updated_at_column();
-
 -- ============================================
 -- FOCUS QUEUE TABLE
 -- ============================================
@@ -228,9 +222,31 @@ CREATE TABLE IF NOT EXISTS user_insights (
   focus_ratio NUMERIC DEFAULT 0,
   focus_ratio_date TEXT,
   streak_days INTEGER DEFAULT 0,
-  last_update_date TEXT,
+  last_completion_date TEXT,
+  total_tasks_created INTEGER DEFAULT 0,
+  ai_assisted_tasks INTEGER DEFAULT 0,
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+ALTER TABLE user_insights
+  ADD COLUMN IF NOT EXISTS last_completion_date TEXT,
+  ADD COLUMN IF NOT EXISTS total_tasks_created INTEGER DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS ai_assisted_tasks INTEGER DEFAULT 0;
+
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1
+    FROM information_schema.columns
+    WHERE table_schema = 'public'
+      AND table_name = 'user_insights'
+      AND column_name = 'last_update_date'
+  ) THEN
+    EXECUTE 'UPDATE user_insights SET last_completion_date = COALESCE(last_completion_date, last_update_date) WHERE last_completion_date IS NULL';
+    EXECUTE 'ALTER TABLE user_insights DROP COLUMN IF EXISTS last_update_date';
+  END IF;
+END
+$$;
 
 -- RLS policies for insights
 ALTER TABLE user_insights ENABLE ROW LEVEL SECURITY;
@@ -320,6 +336,12 @@ CREATE TRIGGER update_user_settings_updated_at
 DROP TRIGGER IF EXISTS update_goals_updated_at ON goals;
 CREATE TRIGGER update_goals_updated_at
   BEFORE UPDATE ON goals
+  FOR EACH ROW
+  EXECUTE FUNCTION update_updated_at_column();
+
+DROP TRIGGER IF EXISTS update_tasks_updated_at ON tasks;
+CREATE TRIGGER update_tasks_updated_at
+  BEFORE UPDATE ON tasks
   FOR EACH ROW
   EXECUTE FUNCTION update_updated_at_column();
 

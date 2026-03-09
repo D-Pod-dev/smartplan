@@ -27,6 +27,35 @@ VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
 
 The integration is already complete. All data will automatically sync when users are authenticated.
 
+## 🆕 Schema Update (March 2026)
+
+If your project was initialized before March 2026, rerun `SUPABASE_SCHEMA.sql` (recommended), or run this targeted migration:
+
+```sql
+ALTER TABLE user_insights
+   ADD COLUMN IF NOT EXISTS last_completion_date TEXT,
+   ADD COLUMN IF NOT EXISTS total_tasks_created INTEGER DEFAULT 0,
+   ADD COLUMN IF NOT EXISTS ai_assisted_tasks INTEGER DEFAULT 0;
+
+DO $$
+BEGIN
+   IF EXISTS (
+      SELECT 1
+      FROM information_schema.columns
+      WHERE table_schema = 'public'
+         AND table_name = 'user_insights'
+         AND column_name = 'last_update_date'
+   ) THEN
+      UPDATE user_insights
+      SET last_completion_date = COALESCE(last_completion_date, last_update_date)
+      WHERE last_completion_date IS NULL;
+
+      ALTER TABLE user_insights DROP COLUMN IF EXISTS last_update_date;
+   END IF;
+END
+$$;
+```
+
 ## 📊 What Gets Synced
 
 ### ✅ Currently Integrated
@@ -122,7 +151,11 @@ function MyComponent() {
 
 5. **user_insights** - Analytics metrics
    - `user_id` (UUID, PK, FK to auth.users)
-   - `flow_score`, `tasks_completed_today`, etc.
+   - `flow_score`, `flow_score_trend`
+   - `tasks_completed_today`, `tasks_completed_this_week`
+   - `time_saved_hours`, `time_saved_tasks`
+   - `focus_ratio`, `focus_ratio_date`, `streak_days`
+   - `last_completion_date`, `total_tasks_created`, `ai_assisted_tasks`
    - `updated_at` (TIMESTAMPTZ)
 
 6. **user_tags** - Custom tags
