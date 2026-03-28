@@ -20,6 +20,7 @@ export default function Sidebar({ isOpen, onClose, devPanelEnabled, devPanelInSi
   const [timerInput, setTimerInput] = useState('00:00')
   const [dateCollapsed, setDateCollapsed] = useState(true)
   const [timerCollapsed, setTimerCollapsed] = useState(true)
+  const appIconPath = '/favicon.png'
   
   const isOnFocusPage = currentPath === '/focus'
   const isTimerRunning = timerState === 'running'
@@ -58,7 +59,14 @@ export default function Sidebar({ isOpen, onClose, devPanelEnabled, devPanelInSi
     >
       <div className="sidebar__header">
         <div className="brand">
-          <span className="brand__mark" aria-hidden="true" />
+          <img
+            className="brand__mark"
+            src={appIconPath}
+            alt="SmartPlan logo"
+            onError={(event) => {
+              event.currentTarget.src = '/favicon1.svg'
+            }}
+          />
           <div className="brand__text">
             <span className="brand__title">SmartPlan</span>
             <span className="brand__subtitle">AI to-do</span>

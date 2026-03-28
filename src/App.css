@@ -116,7 +116,8 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   width: 36px;
   height: 36px;
   border-radius: 8px;
-  background: linear-gradient(135deg, #5a8fd8, #3b82f6);
+  object-fit: cover;
+  display: block;
   box-shadow: 0 8px 18px rgba(90, 143, 216, 0.28);
 }
 
