@@ -72,6 +72,18 @@ const deriveDevPanelSettings = () => {
   return { enabled: false, inNav: false, inSidebar: false }
 }
 
+const deriveInitialThemeSetting = () => {
+  if (typeof localStorage === 'undefined') return 'system'
+  try {
+    const saved = localStorage.getItem('smartplan.settings')
+    if (saved) {
+      const parsed = JSON.parse(saved)
+      if (parsed && parsed.theme && typeof parsed.theme.mode === 'string') return parsed.theme.mode
+    }
+  } catch {}
+  return 'system'
+}
+
 function App() {
   const location = useLocation()
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
@@ -79,6 +91,7 @@ function App() {
   const [goals, setGoals] = useState(() => deriveInitialGoals())
   const [deleteTasksByGoalId, setDeleteTasksByGoalId] = useState(() => {})
   const devPanelSettings = deriveDevPanelSettings()
+  const [themeMode, setThemeMode] = useState(() => deriveInitialThemeSetting())
   const [devPanelEnabled, setDevPanelEnabled] = useState(devPanelSettings.enabled)
   const [devPanelInNav, setDevPanelInNav] = useState(devPanelSettings.inNav)
   const [devPanelInSidebar, setDevPanelInSidebar] = useState(devPanelSettings.inSidebar)
@@ -129,6 +142,54 @@ function App() {
       window.removeEventListener('focusTimerStateUpdate', handleTimerStateUpdate)
     }
   }, [])
+
+  // Apply theme (system / dark / light) and listen for system changes and settings updates
+  useEffect(() => {
+    const applyTheme = (mode) => {
+      const prefersDark = typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches
+      const effective = mode === 'system' ? (prefersDark ? 'dark' : 'light') : mode
+      try {
+        document.documentElement.setAttribute('data-theme', effective === 'light' ? 'light' : 'dark')
+      } catch {}
+    }
+
+    applyTheme(themeMode)
+
+    const mq = typeof window !== 'undefined' && window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null
+    const mqHandler = () => {
+      if (themeMode === 'system') applyTheme('system')
+    }
+    if (mq) {
+      if (mq.addEventListener) mq.addEventListener('change', mqHandler)
+      else mq.addListener(mqHandler)
+    }
+
+    const onSettingsChanged = () => {
+      try {
+        const s = localStorage.getItem('smartplan.settings')
+        if (s) {
+          const parsed = JSON.parse(s)
+          const mode = parsed?.theme?.mode
+          if (typeof mode === 'string') setThemeMode(mode)
+        }
+      } catch {}
+    }
+
+    window.addEventListener('userSettingsChanged', onSettingsChanged)
+    const onStorage = (e) => {
+      if (e.key === 'smartplan.settings') onSettingsChanged()
+    }
+    window.addEventListener('storage', onStorage)
+
+    return () => {
+      if (mq) {
+        if (mq.removeEventListener) mq.removeEventListener('change', mqHandler)
+        else mq.removeListener(mqHandler)
+      }
+      window.removeEventListener('userSettingsChanged', onSettingsChanged)
+      window.removeEventListener('storage', onStorage)
+    }
+  }, [themeMode])
 
   const closeSidebar = () => setIsSidebarOpen(false)
   const handleOverlayKeyDown = (event) => {

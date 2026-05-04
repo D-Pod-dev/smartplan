@@ -40,6 +40,17 @@ export default function Settings({ devPanelEnabled, onToggleDevPanel, devPanelIn
   const isAnonymous = (user?.is_anonymous ?? provider === 'anonymous') === true
   
   const [focusSettings, setFocusSettings] = useState(() => deriveFocusSettings())
+  const [themeMode, setThemeMode] = useState(() => {
+    if (typeof localStorage === 'undefined') return 'system'
+    try {
+      const saved = localStorage.getItem('smartplan.settings')
+      if (saved) {
+        const parsed = JSON.parse(saved)
+        return parsed?.theme?.mode ?? 'system'
+      }
+    } catch {}
+    return 'system'
+  })
   
   // Sync settings with Supabase
   const settingsData = {
@@ -49,8 +60,25 @@ export default function Settings({ devPanelEnabled, onToggleDevPanel, devPanelIn
       inNav: localDevInNav,
       inSidebar: localDevInSidebar,
     },
+    theme: {
+      mode: themeMode,
+    },
   }
   const { syncStatus: settingsSyncStatus } = useSupabaseSettings(settingsData)
+
+  const handleThemeChange = (mode) => {
+    setThemeMode(mode)
+    try {
+      const raw = localStorage.getItem('smartplan.settings')
+      const parsed = raw ? JSON.parse(raw) : {}
+      parsed.theme = { mode }
+      localStorage.setItem('smartplan.settings', JSON.stringify(parsed))
+    } catch {}
+    // Notify other parts of the app to update theme immediately
+    try {
+      window.dispatchEvent(new CustomEvent('userSettingsChanged'))
+    } catch {}
+  }
   
   const getStoredTaskCount = () => {
     if (typeof localStorage === 'undefined') return 0
@@ -544,6 +572,23 @@ export default function Settings({ devPanelEnabled, onToggleDevPanel, devPanelIn
         <div className="panel">
           <div className="panel__title">General</div>
           <p className="panel__copy">Theme, notifications, and default durations.</p>
+          <div style={{ marginTop: '0.75rem', marginBottom: '0.75rem' }}>
+            <h3 style={{ fontSize: '1rem', fontWeight: 500, marginBottom: '0.5rem', color: 'var(--heading)' }}>Appearance</h3>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginBottom: '1rem' }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <input type="radio" name="theme" value="system" checked={themeMode === 'system'} onChange={() => handleThemeChange('system')} />
+                <span style={{ marginLeft: '0.25rem' }}>System (use OS setting)</span>
+              </label>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <input type="radio" name="theme" value="dark" checked={themeMode === 'dark'} onChange={() => handleThemeChange('dark')} />
+                <span style={{ marginLeft: '0.25rem' }}>Dark</span>
+              </label>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <input type="radio" name="theme" value="light" checked={themeMode === 'light'} onChange={() => handleThemeChange('light')} />
+                <span style={{ marginLeft: '0.25rem' }}>Light</span>
+              </label>
+            </div>
+          </div>
           
           <div style={{ marginTop: '1.5rem' }}>
             <h3 style={{ fontSize: '1rem', fontWeight: 500, marginBottom: '1rem', color: 'var(--heading)' }}>Notifications</h3>
