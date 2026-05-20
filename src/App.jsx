@@ -73,7 +73,7 @@ const deriveDevPanelSettings = () => {
 }
 
 const deriveInitialThemeSetting = () => {
-  if (typeof localStorage === 'undefined') return 'system'
+  if (typeof localStorage === 'undefined') return 'dark'
   try {
     const saved = localStorage.getItem('smartplan.settings')
     if (saved) {
@@ -81,7 +81,7 @@ const deriveInitialThemeSetting = () => {
       if (parsed && parsed.theme && typeof parsed.theme.mode === 'string') return parsed.theme.mode
     }
   } catch {}
-  return 'system'
+  return 'dark'
 }
 
 function App() {
