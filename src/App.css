@@ -2831,6 +2831,7 @@ input[type="time"].todo-edit-input {
   color: var(--accent);
   font-size: 0.875rem;
   padding: 0.25rem 0;
+  -webkit-user-select: none;
   user-select: none;
 }
 
@@ -3072,6 +3073,7 @@ input[type="time"].todo-edit-input {
   justify-content: center;
   z-index: 1000;
   padding: 1rem;
+  -webkit-backdrop-filter: blur(4px);
   backdrop-filter: blur(4px);
 }
 
